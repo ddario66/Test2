@@ -304,7 +304,7 @@ local collectAllButton = BringsTab:CreateButton({
 })
 
 -- Create Player Tab
-local EspTab = Window:CreateTab("ESP", 4483362458)
+local EspTab = Window:CreateTab("Player", 4483362458)
 
 local ESPHandles = {}
 local ESPEnabled = false
@@ -448,7 +448,7 @@ end
 
 manipulateMovement()
 
--- Add Speed Slider and Toggle to ESP Tab
+-- Add Speed Slider and Toggle to Player Tab
 local speedToggle = EspTab:CreateToggle({
     Name = "Speed",
     CurrentValue = false,
@@ -470,7 +470,7 @@ local speedSlider = EspTab:CreateSlider({
     end
 })
 
--- Add FOV Slider and Toggle to ESP Tab
+-- Add FOV Slider and Toggle to Player Tab
 local fovEnabled = false
 
 local function updateFOV()
@@ -511,62 +511,11 @@ local fovSlider = EspTab:CreateSlider({
     end
 })
 
--- Add Fly Button to ESP Tab
+-- Add Fly Button to Player Tab
 local flyButton = EspTab:CreateButton({
     Name = "Fly",
     Callback = function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"))()
-    end
-})
-
--- Add Light Toggle to ESP Tab
-local light
-local lightEnabled = false
-
-local function toggleLight(state)
-    if state then
-        if not light then
-            light = Instance.new("PointLight")
-            light.Parent = game.Players.LocalPlayer.Character:WaitForChild("HumanoidRootPart")
-            light.Range = 50 -- Increase the range of the light
-            light.Brightness = 5 -- Increase the brightness of the light
-            light.Color = Color3.new(1, 1, 1) -- Set the color of the light (white in this case)
-            light.Shadows = true -- Enable shadows
-        end
-        light.Enabled = true
-    else
-        if light then
-            light.Enabled = false
-        end
-    end
-end
-
-local lightToggle = EspTab:CreateToggle({
-    Name = "Light",
-    CurrentValue = false,
-    Flag = "LightToggle",
-    Callback = function(Value)
-        lightEnabled = Value
-        toggleLight(lightEnabled)
-    end
-})
-
--- Add Third-Person View Button to ESP Tab
-local function setThirdPersonView()
-    local players = game:GetService("Players")
-    local user = players.LocalPlayer
-    local camera = game.Workspace.CurrentCamera
-
-    user.CameraMode = Enum.CameraMode.Classic -- Ensures third-person mode
-    camera.CameraType = Enum.CameraType.Custom
-    camera.FieldOfView = 70 -- Adjust the FOV if necessary
-    print("Camera is set to third-person view")
-end
-
-local thirdPersonButton = EspTab:CreateButton({
-    Name = "Third-Person View",
-    Callback = function()
-        setThirdPersonView()
     end
 })
 
@@ -583,7 +532,6 @@ local teleportButton1 = TpTab:CreateButton({
         game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-115.03990173339844, 32.50211715698242, 28974.595703125)
     end
 })
-
 
 -- Add teleport Button to Teleport Tab
 local teleportButton2 = TpTab:CreateButton({
