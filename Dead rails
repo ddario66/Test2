@@ -614,29 +614,20 @@ local lightToggle = EspTab:CreateToggle({
 })
 
 
--- Add ThirdPersionButton to Player Tab
-local ThirdPersonButton = EspTab:CreateButton({
-    Name = "Third Person (camera))",
-    Callback = function()
-        loadstring(game:HttpGet("-- Local script to set the camera to third-person view
-local players = game:GetService("Players")
-local user = players.LocalPlayer
-local camera = game.Workspace.CurrentCamera
-
--- Function to set the camera to third-person view
 local function setThirdPersonView()
+    local players = game:GetService("Players")
+    local user = players.LocalPlayer
+    local camera = game.Workspace.CurrentCamera
+
     user.CameraMode = Enum.CameraMode.Classic -- Ensures third-person mode
     camera.CameraType = Enum.CameraType.Custom
     camera.FieldOfView = 70 -- Adjust the FOV if necessary
     print("Camera is set to third-person view")
 end
 
--- Set third-person view when the player joins the game
-user.CharacterAdded:Connect(function(character)
-    setThirdPersonView()
-end)
-
--- Ensure the camera is set when the script first runs
-setThirdPersonView()"))()
+local thirdPersonButton = EspTab:CreateButton({
+    Name = "Third-Person View",
+    Callback = function()
+        setThirdPersonView()
     end
 })
