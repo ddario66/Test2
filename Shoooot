@@ -1,0 +1,345 @@
+-- =============================================
+-- Murder Mystery 2 Ghost Auto-Shooter Suite
+-- Complete Wall-Check Version (One-Click Ready)
+-- =============================================
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Delete old GUI if exists
+if PlayerGui:FindFirstChild("GhostShooterGUI") then
+    PlayerGui.GhostShooterGUI:Destroy()
+end
+
+-- Ghost Style Configuration
+local GHOST_STYLE = {
+    PrimaryColor = Color3.fromRGB(150, 150, 255),
+    SecondaryColor = Color3.fromRGB(200, 200, 255),
+    GlowSpeed = 10,
+    PulseSpeed = 2,
+    SmokeParticles = 8,
+    NotificationDuration = 3
+}
+
+-- Main GUI
+local GhostGUI = Instance.new("ScreenGui")
+GhostGUI.Name = "GhostShooterGUI"
+GhostGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+GhostGUI.ResetOnSpawn = false
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 220, 0, 120)
+MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+MainFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+MainFrame.BackgroundTransparency = 0.3
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+
+-- Glow Effect
+local Glow = Instance.new("UIGradient")
+Glow.Rotation = 90
+Glow.Transparency = NumberSequence.new(0.5)
+Glow.Color = ColorSequence.new(GHOST_STYLE.PrimaryColor)
+Glow.Parent = MainFrame
+
+-- Smoke Particles
+local SmokeContainer = Instance.new("Frame")
+SmokeContainer.Size = UDim2.new(1, 0, 1, 0)
+SmokeContainer.BackgroundTransparency = 1
+SmokeContainer.Parent = MainFrame
+
+local smokeParticles = {}
+for i = 1, GHOST_STYLE.SmokeParticles do
+    local particle = Instance.new("Frame")
+    particle.Size = UDim2.new(0, 20, 0, 20)
+    particle.BackgroundColor3 = GHOST_STYLE.PrimaryColor
+    particle.BackgroundTransparency = 0.8
+    particle.AnchorPoint = Vector2.new(0.5, 0.5)
+    particle.Position = UDim2.new(0.5, 0, 0.5, 0)
+    particle.Rotation = math.random(0, 360)
+    particle.Parent = SmokeContainer
+    table.insert(smokeParticles, particle)
+end
+
+-- Title Bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 25)
+TitleBar.BackgroundColor3 = GHOST_STYLE.PrimaryColor
+TitleBar.BackgroundTransparency = 0.7
+TitleBar.Parent = MainFrame
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -50, 1, 0)
+TitleText.Position = UDim2.new(0, 10, 0, 0)
+TitleText.Text = "GHOST SHOOTER"
+TitleText.Font = Enum.Font.SourceSansBold
+TitleText.TextColor3 = GHOST_STYLE.SecondaryColor
+TitleText.BackgroundTransparency = 1
+TitleText.TextSize = 14
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+-- Close Button
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 25, 0, 25)
+CloseButton.Position = UDim2.new(1, -25, 0, 0)
+CloseButton.Text = "✕"
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.TextColor3 = Color3.new(1, 0.5, 0.5)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Parent = TitleBar
+
+CloseButton.MouseButton1Click:Connect(function()
+    GhostGUI:Destroy()
+end)
+
+-- Toggle Button
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0.8, 0, 0, 40)
+ToggleButton.Position = UDim2.new(0.1, 0, 0.5, -20)
+ToggleButton.Text = "OFF"
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.TextColor3 = GHOST_STYLE.SecondaryColor
+ToggleButton.BackgroundColor3 = GHOST_STYLE.PrimaryColor
+ToggleButton.BackgroundTransparency = 0.7
+ToggleButton.Parent = MainFrame
+
+-- Draggable Functionality
+local dragging, dragInput, dragStart, startPos
+
+MainFrame.InputBegan:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Notification System
+local function GhostNotify(title, message)
+    local notification = Instance.new("Frame")
+    notification.Size = UDim2.new(0.4, 0, 0, 80)
+    notification.Position = UDim2.new(0.5, 0, -0.1, 0)
+    notification.AnchorPoint = Vector2.new(0.5, 0)
+    notification.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    notification.BackgroundTransparency = 0.4
+    notification.BorderSizePixel = 0
+    notification.Parent = GhostGUI
+
+    local notifGlow = Instance.new("UIGradient")
+    notifGlow.Rotation = 90
+    notifGlow.Transparency = NumberSequence.new(0.5)
+    notifGlow.Color = ColorSequence.new(GHOST_STYLE.PrimaryColor)
+    notifGlow.Parent = notification
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -20, 0.4, 0)
+    titleLabel.Position = UDim2.new(0, 10, 0, 5)
+    titleLabel.Text = string.upper(title)
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextColor3 = GHOST_STYLE.SecondaryColor
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.TextSize = 14
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = notification
+
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.Size = UDim2.new(1, -20, 0.6, 0)
+    messageLabel.Position = UDim2.new(0, 10, 0.4, 0)
+    messageLabel.Text = message
+    messageLabel.Font = Enum.Font.SourceSans
+    messageLabel.TextColor3 = Color3.new(1, 1, 1)
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.TextSize = 12
+    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    messageLabel.TextYAlignment = Enum.TextYAlignment.Top
+    messageLabel.Parent = notification
+
+    -- Entrance animation
+    TweenService:Create(
+        notification,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quint),
+        {Position = UDim2.new(0.5, 0, 0.02, 0)}
+    ):Play()
+
+    -- Glow rotation effect
+    local glowConnection
+    glowConnection = RunService.Heartbeat:Connect(function(dt)
+        notifGlow.Rotation = (notifGlow.Rotation + GHOST_STYLE.GlowSpeed * dt) % 360
+    end)
+
+    -- Auto-remove after duration
+    task.delay(GHOST_STYLE.NotificationDuration, function()
+        TweenService:Create(
+            notification,
+            TweenInfo.new(0.5, Enum.EasingStyle.Quint),
+            {Position = UDim2.new(0.5, 0, -0.1, 0)}
+        ):Play()
+        task.delay(0.5, function()
+            glowConnection:Disconnect()
+            notification:Destroy()
+        end)
+    end)
+end
+
+-- Auto-Shoot Functionality
+local autoShooting = false
+local shootTask = nil
+local shootOffset = 0.2
+
+-- Wall Check Function
+local function wallCheck(shooterPos, targetPos, targetCharacter)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    raycastParams.IgnoreWater = true
+    
+    local direction = (targetPos - shooterPos).Unit
+    local distance = (targetPos - shooterPos).Magnitude
+    local ray = workspace:Raycast(shooterPos, direction * distance, raycastParams)
+    
+    return not ray or ray.Instance:IsDescendantOf(targetCharacter)
+end
+
+local function findMurderer()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Knife") then
+            return player
+        end
+    end
+    return nil
+end
+
+local function isSheriff()
+    return LocalPlayer.Character and (LocalPlayer.Character:FindFirstChild("Gun") or LocalPlayer.Backpack:FindFirstChild("Gun"))
+end
+
+local function getPredictedPosition(target)
+    local hrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    return hrp and (hrp.Position + (hrp.Velocity * shootOffset)) or nil
+end
+
+local function shootAtTarget(target)
+    if not target or not target.Character then return false end
+    
+    -- Get shooting positions
+    local shooterHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+    if not shooterHRP or not targetHRP then return false end
+
+    -- Wall check to current position
+    if not wallCheck(shooterHRP.Position, targetHRP.Position, target.Character) then
+        GhostNotify("WARNING", "Target obstructed!")
+        return false
+    end
+
+    -- Equip gun if needed
+    if not LocalPlayer.Character:FindFirstChild("Gun") then
+        local gun = LocalPlayer.Backpack:FindFirstChild("Gun")
+        if gun then
+            LocalPlayer.Character.Humanoid:EquipTool(gun)
+            task.wait(0.2)
+        else
+            return false
+        end
+    end
+
+    -- Shoot with wall check to predicted position
+    local predictedPos = getPredictedPosition(target)
+    if predictedPos then
+        if wallCheck(shooterHRP.Position, predictedPos, target.Character) then
+            pcall(function()
+                local args = {1, predictedPos, "AH2"}
+                LocalPlayer.Character.Gun.KnifeLocal.CreateBeam.RemoteFunction:InvokeServer(unpack(args))
+            end)
+            return true
+        end
+    end
+    return false
+end
+
+ToggleButton.MouseButton1Click:Connect(function()
+    autoShooting = not autoShooting
+    
+    if autoShooting then
+        if not isSheriff() then
+            GhostNotify("ERROR", "You're not the sheriff!")
+            autoShooting = false
+            return
+        end
+        
+        ToggleButton.Text = "ON"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
+        GhostNotify("SYSTEM", "Auto-shoot activated")
+        
+        shootTask = task.spawn(function()
+            while autoShooting and task.wait(0.1) do
+                local murderer = findMurderer()
+                if murderer then
+                    shootAtTarget(murderer)
+                end
+            end
+            
+            ToggleButton.Text = "OFF"
+            ToggleButton.BackgroundColor3 = GHOST_STYLE.PrimaryColor
+            GhostNotify("SYSTEM", "Auto-shoot deactivated")
+        end)
+    else
+        if shootTask then
+            task.cancel(shootTask)
+        end
+        ToggleButton.Text = "OFF"
+        ToggleButton.BackgroundColor3 = GHOST_STYLE.PrimaryColor
+    end
+end)
+
+-- Animation Effects
+RunService.Heartbeat:Connect(function(dt)
+    -- Rotate glow
+    Glow.Rotation = (Glow.Rotation + GHOST_STYLE.GlowSpeed * dt) % 360
+    
+    -- Pulse effect
+    local pulse = math.sin(tick() * GHOST_STYLE.PulseSpeed) * 0.05
+    MainFrame.BackgroundTransparency = 0.3 + pulse
+    
+    -- Move smoke particles
+    for i, particle in ipairs(smokeParticles) do
+        local offset = i * (math.pi * 2 / GHOST_STYLE.SmokeParticles)
+        local x = math.cos(tick() + offset) * 30
+        local y = math.sin(tick() * 0.5 + offset) * 20
+        particle.Position = UDim2.new(0.5, x, 0.5, y)
+        particle.BackgroundTransparency = 0.7 + math.sin(tick() * 2 + i) * 0.2
+    end
+end)
+
+-- Final assembly
+MainFrame.Parent = GhostGUI
+GhostGUI.Parent = PlayerGui
+
+-- Initial notification
+GhostNotify("GHOST SHOOTER", "Drag the window | Toggle to activate")
