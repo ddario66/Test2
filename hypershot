@@ -1,4 +1,4 @@
--- ddariuspr gui | MURDER DUELS BEST EDITION v1 (mobile-ready, fixed)
+-- ddariuspr gui | MURDER DUELS BEST EDITION v1 (mobile-ready, silent-aim fixed)
 print("[ddariuspr] script start")
 
 local Players = game:GetService("Players")
@@ -11,9 +11,7 @@ local Workspace = game:GetService("Workspace")
 local RStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
--- ============================================================
 -- CAPABILITY DETECTION (safe against strict sandboxes)
--- ============================================================
 local hasMouseMove, hasClick, hasHook, vim, IS_MOBILE = false, false, false, nil, false
 pcall(function()
 	local ok, mv = pcall(function() return mousemoverel end)
@@ -1206,9 +1204,7 @@ if getgenv then
 	getgenv()._ddariuspr_float = Float
 end
 
--- ============================================================
 -- SHARED STRICT ENEMY CHECK
--- ============================================================
 local Camera = Workspace.CurrentCamera
 
 local function isEnemyStrict(model: Model): boolean
@@ -1232,9 +1228,7 @@ local function isEnemyStrict(model: Model): boolean
 	return false
 end
 
--- ============================================================
 -- INFO TAB
--- ============================================================
 _G.ddariuspr_info = GUI:Tab("Info", "ℹ️")
 pcall(function()
 	local pg = Pages["Info"]
@@ -1333,9 +1327,7 @@ end)
 local Combat = GUI:Tab("Combat", "🔪")
 local CSec = Combat:Section("🎯 CAMLOCK")
 
--- ============================================================
 -- CAMLOCK
--- ============================================================
 local AimState = {
 	Enabled = false,
 	FOV = 130,
@@ -1542,9 +1534,7 @@ end)
 CSec:Slider("Camlock FOV", 20, 600, 130, function(v) AimState.FOV = v end)
 CSec:Slider("Camlock Smoothing", 1, 10, 3, function(v) AimState.Smoothing = v end)
 
--- ============================================================
 -- TRIGGERBOT
--- ============================================================
 local TrigState = {
 	Enabled = false,
 	AimPartName = "Head",
@@ -1661,19 +1651,15 @@ TSec:Toggle("Triggerbot", false, function(v)
 end)
 TSec:Slider("Triggerbot Delay (ms)", 0, 500, 250, function(v) TrigState.Cooldown = v / 1000 end)
 
--- ============================================================
 -- FORWARD DECLARATIONS (needed by Silent Aim + Wallbang)
--- ============================================================
-local KillAllState     -- declared here, assigned in Kill All section
-local SilentState      -- declared here, assigned just below
+local KillAllState
+local SilentState
 local silentTarget: BasePart? = nil
 local WALLBANG = false
 local WALLBANG_FOV_RADIUS = 300
 local wallbangTarget: BasePart? = nil
 
--- ============================================================
--- SILENT AIM  (packet-hook when available; camera-snap fallback)
--- ============================================================
+-- SILENT AIM (fixed target picker)
 SilentState = {
 	Enabled = false,
 	FOV = 200,
@@ -1746,12 +1732,15 @@ local silentSelectConn = RunService.RenderStepped:Connect(function()
 						local d = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
 						if d < bestDist then
 							local origin = Camera.CFrame.Position
+							local dir = part.Position - origin
 							local params = RaycastParams.new()
 							params.FilterType = Enum.RaycastFilterType.Exclude
-							params.FilterDescendantsInstances = {LocalPlayer.Character, v, Camera}
 							params.IgnoreWater = true
-							local hit = Workspace:Raycast(origin, part.Position - origin, params)
-							if hit == nil then
+							local ign: { Instance } = { Camera }
+							if LocalPlayer.Character then table.insert(ign, LocalPlayer.Character) end
+							params.FilterDescendantsInstances = ign
+							local hit = Workspace:Raycast(origin, dir.Unit * dir.Magnitude, params)
+							if hit == nil or (hit.Instance and hit.Instance:IsDescendantOf(v)) then
 								best, bestDist = part, d
 							end
 						end
@@ -1788,9 +1777,7 @@ SAimSec:Toggle("Silent Aim", false, function(v)
 end)
 SAimSec:Slider("Silent Aim FOV", 40, 600, 200, function(v) SilentState.FOV = v end)
 
--- ============================================================
 -- WALLBANG
--- ============================================================
 local wallbangSelectConn = RunService.RenderStepped:Connect(function()
 	pcall(function()
 		if not WALLBANG then
@@ -1849,9 +1836,7 @@ WSEC:Toggle("Wallbang", false, function(v)
 end)
 WSEC:Slider("Wallbang FOV", 40, 800, 300, function(v) WALLBANG_FOV_RADIUS = v end)
 
--- ============================================================
 -- KILL ALL
--- ============================================================
 KillAllState = {
 	Enabled = false,
 	Target = nil :: BasePart?,
@@ -2180,9 +2165,7 @@ Combat:Section("💀 KILL ALL"):Toggle("Kill All", false, function(v)
 	end
 end)
 
--- ============================================================
 -- UNIFIED NAMECALL HOOK (fixed varargs scope)
--- ============================================================
 function KillAllState.ensureHook()
 	if KillAllState.hooked then return end
 	KillAllState.hooked = true
@@ -2237,7 +2220,7 @@ function KillAllState.ensureHook()
 		if type(hookmetamethod) == "function" and type(getnamecallmethod) == "function" then
 			local oldNamecall
 			oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-				local args = {...}   -- capture HERE, in the hook's own scope
+				local args = {...}
 				pcall(function()
 					local method = getnamecallmethod()
 					if method == "FireServer" or method == "Fire" or method == "InvokeServer" then
@@ -2259,9 +2242,7 @@ function KillAllState.ensureHook()
 	end
 end
 
--- ============================================================
 -- VISUALS TAB
--- ============================================================
 local Vis = GUI:Tab("Visuals", "👁️")
 local VSec = Vis:Section("👁️ ENEMY ESP")
 
@@ -2461,9 +2442,7 @@ VSec:Toggle("ESP Box", true, function(v) EspState.ShowBox = v end)
 VSec:Toggle("ESP Health", true, function(v) EspState.ShowHealth = v end)
 VSec:Toggle("ESP Name", true, function(v) EspState.ShowName = v end)
 
--- ============================================================
 -- MOVE TAB
--- ============================================================
 local Move = GUI:Tab("Move", "🏃")
 local MoveSec = Move:Section("🏃 SLIDE")
 
@@ -2625,9 +2604,7 @@ MoveSec:Toggle("Remove Slide Cooldown", false, function(v)
 	Notify("Move", "Remove Slide Cooldown " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 end)
 
--- ============================================================
 -- SPEED BOOST
--- ============================================================
 local SpeedSec = Move:Section("⚡ SPEED BOOST")
 local SpeedState = { Enabled = false, Speed = 36 }
 local watchedHum = nil
@@ -2673,9 +2650,7 @@ SpeedSec:Toggle("Speed Boost", false, function(v)
 end)
 SpeedSec:Slider("Speed", 16, 60, 36, function(v) SpeedState.Speed = v end)
 
--- ============================================================
 -- EMOTES TAB
--- ============================================================
 local Emotes = GUI:Tab("Emotes", "🎵")
 local EmoteSec = Emotes:Section("🎵 FREE EMOTES")
 local EmoteState = { FreeEmotes = false, EmotesGUI = false, Page = 1 }
@@ -3130,9 +3105,7 @@ else
 	end))
 end
 
--- ============================================================
 -- INVENTORY INJECTOR
--- ============================================================
 local Injector = (function()
 	local lp = LocalPlayer
 	local wantedKnife = lp:GetAttribute("KnifeSkin") or "Default"
@@ -3419,9 +3392,7 @@ local Injector = (function()
 	}
 end)()
 
--- ============================================================
 -- SKINS TAB
--- ============================================================
 local Skins = GUI:Tab("Skins", "🔫")
 local SkinsSec = Skins:Section("🔫 SKINS")
 SkinsSec:Button("Get All Knives / Guns", "green", function()
@@ -3434,9 +3405,7 @@ SkinsSec:Button("Get All Knives / Guns", "green", function()
 	end)
 end)
 
--- ============================================================
 -- WELCOME SCREEN
--- ============================================================
 function GUI:showWelcome(done)
 	task.spawn(function()
 		pcall(function()
