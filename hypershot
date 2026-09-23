@@ -1,5 +1,5 @@
--- ddariuspr gui | MURDER DUELS BEST EDITION v1 (Mobile Fixed - Delta)
--- Silent Aim + Wallbang fixed for mobile | Full script ready
+-- ddariuspr gui | MURDER DUELS BEST EDITION v1 (mobile-ready, fixed)
+print("[ddariuspr] script start")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -7,7 +7,31 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local CoreGuiSvc = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local RStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
+
+-- ============================================================
+-- CAPABILITY DETECTION (safe against strict sandboxes)
+-- ============================================================
+local hasMouseMove, hasClick, hasHook, vim, IS_MOBILE = false, false, false, nil, false
+pcall(function()
+	local ok, mv = pcall(function() return mousemoverel end)
+	hasMouseMove = ok and typeof(mv) == "function"
+end)
+pcall(function()
+	local ok, mc = pcall(function() return mouse1click end)
+	hasClick = ok and typeof(mc) == "function"
+end)
+pcall(function()
+	local ok1, hm = pcall(function() return hookmetamethod end)
+	local ok2, gn = pcall(function() return getnamecallmethod end)
+	hasHook = ok1 and ok2 and type(hm) == "function" and type(gn) == "function"
+end)
+pcall(function() vim = game:GetService("VirtualInputManager") end)
+pcall(function()
+	IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+end)
 
 local RSTATE: any = nil
 pcall(function()
@@ -18,9 +42,7 @@ pcall(function()
 	local envs: any = { _G }
 	if typeof(getgenv) == "function" then
 		local ok, g = pcall(function() return getgenv() end)
-		if ok and type(g) == "table" and g ~= _G then
-			table.insert(envs, g)
-		end
+		if ok and type(g) == "table" and g ~= _G then table.insert(envs, g) end
 	end
 	for _, env in ipairs(envs) do
 		if env._ddariuspr_conns then
@@ -34,9 +56,7 @@ local function trackConn(c)
 		local env: any = _G
 		if typeof(getgenv) == "function" then
 			local ok, g = pcall(function() return getgenv() end)
-			if ok and type(g) == "table" then
-				env = g
-			end
+			if ok and type(g) == "table" then env = g end
 		end
 		env._ddariuspr_conns = env._ddariuspr_conns or {}
 		table.insert(env._ddariuspr_conns, c)
@@ -63,9 +83,7 @@ pcall(function()
 	local envs: any = { _G }
 	if typeof(getgenv) == "function" then
 		local ok, g = pcall(function() return getgenv() end)
-		if ok and type(g) == "table" and g ~= _G then
-			table.insert(envs, g)
-		end
+		if ok and type(g) == "table" and g ~= _G then table.insert(envs, g) end
 	end
 	for _, env in ipairs(envs) do
 		for _, key in ipairs({ "_ddariuspr_aim_fov", "_ddariuspr_aim_snap", "_ddariuspr_trig_dot" }) do
@@ -151,7 +169,11 @@ local function fitScale()
 	local cam = workspace.CurrentCamera
 	if not cam then return end
 	local vs = cam.ViewportSize
-	Scale.Scale = math.clamp(math.min(vs.X / 800, vs.Y / 560), 0.55, 1)
+	if IS_MOBILE then
+		Scale.Scale = math.clamp(math.min(vs.X / 900, vs.Y / 620), 0.65, 1)
+	else
+		Scale.Scale = math.clamp(math.min(vs.X / 800, vs.Y / 560), 0.55, 1)
+	end
 end
 pcall(fitScale)
 pcall(function()
@@ -171,9 +193,7 @@ trackConn(Gui.Destroying:Connect(function()
 		local envs: any = { _G }
 		if typeof(getgenv) == "function" then
 			local ok, g = pcall(function() return getgenv() end)
-			if ok and type(g) == "table" and g ~= _G then
-				table.insert(envs, g)
-			end
+			if ok and type(g) == "table" and g ~= _G then table.insert(envs, g) end
 		end
 		for _, env in ipairs(envs) do
 			for _, key in ipairs({ "_ddariuspr_aim_fov", "_ddariuspr_aim_snap", "_ddariuspr_trig_dot" }) do
@@ -520,7 +540,7 @@ FVer.Position = UDim2.new(1, -12, 0, 0)
 FVer.Size = UDim2.new(0, 140, 1, 0)
 FVer.BackgroundTransparency = 1
 FVer.Font = BODY_FONT
-FVer.Text = "ddariuspr gui • v1 Mobile"
+FVer.Text = "ddariuspr gui • v1"
 FVer.TextSize = 11
 FVer.TextColor3 = T.Orange
 FVer.TextXAlignment = Enum.TextXAlignment.Right
@@ -543,9 +563,7 @@ task.spawn(function()
 			local tm = os.date("%H:%M")
 			pcall(function() FStat.Text = "FPS " .. tostring(fps) .. "  •  PING " .. tostring(ping) .. "  •  " .. tostring(tm) end)
 			local cash: any = nil
-			pcall(function()
-				cash = LocalPlayer:GetAttribute("Cash")
-			end)
+			pcall(function() cash = LocalPlayer:GetAttribute("Cash") end)
 			if type(cash) == "number" then
 				local digits = tostring(math.floor(cash))
 				local grouped = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
@@ -568,12 +586,10 @@ local currentNotify: any = nil
 
 local function Notify(title, msg, accent)
 	accent = accent or T.Green
-
 	if currentNotify then
 		pcall(function() currentNotify:Destroy() end)
 		currentNotify = nil
 	end
-
 	local n = Instance.new("Frame")
 	n.AnchorPoint = Vector2.new(1, 1)
 	n.Position = UDim2.new(1, 40, 1, 0)
@@ -584,7 +600,6 @@ local function Notify(title, msg, accent)
 	n.Parent = NotifyHolder
 	corner(n, 10)
 	stroke(n, accent, 2, 0.1, Enum.ApplyStrokeMode.Border)
-
 	local a = Instance.new("TextLabel")
 	a.Position = UDim2.new(0, 10, 0, 6)
 	a.Size = UDim2.new(1, -20, 0, 18)
@@ -595,7 +610,6 @@ local function Notify(title, msg, accent)
 	a.TextColor3 = accent
 	a.TextXAlignment = Enum.TextXAlignment.Left
 	a.Parent = n
-
 	local m = Instance.new("TextLabel")
 	m.Position = UDim2.new(0, 10, 0, 24)
 	m.Size = UDim2.new(1, -20, 0, 20)
@@ -607,7 +621,6 @@ local function Notify(title, msg, accent)
 	m.TextXAlignment = Enum.TextXAlignment.Left
 	m.TextWrapped = true
 	m.Parent = n
-
 	local barBG = Instance.new("Frame")
 	barBG.Position = UDim2.new(0, 10, 1, -10)
 	barBG.Size = UDim2.new(1, -20, 0, 4)
@@ -616,20 +629,16 @@ local function Notify(title, msg, accent)
 	barBG.BorderSizePixel = 0
 	barBG.Parent = n
 	corner(barBG, 2)
-
 	local bar = Instance.new("Frame")
 	bar.Size = UDim2.new(1, 0, 1, 0)
 	bar.BackgroundColor3 = accent
 	bar.BorderSizePixel = 0
 	bar.Parent = barBG
 	corner(bar, 2)
-
 	currentNotify = n
-
 	tw(n, 0.15, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	tw(n, 0.2, { Position = UDim2.new(1, 0, 1, 0) }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	tw(bar, 2.2, { Size = UDim2.new(0, 0, 1, 0) }, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
-
 	task.delay(2.3, function()
 		if currentNotify == n then
 			pcall(function()
@@ -845,14 +854,9 @@ function GUI:Tab(name, icon)
 		function Sec:Button(txt, theme, cb)
 			theme = string.lower(tostring(theme or "green"))
 			local accent = ({
-				green = T.Green,
-				pink = T.Pink,
-				yellow = T.Yellow,
-				blue = T.Blue,
-				dark = T.Row,
-				red = T.Red,
+				green = T.Green, pink = T.Pink, yellow = T.Yellow,
+				blue = T.Blue, dark = T.Row, red = T.Red,
 			})[theme] or T.Green
-
 			local f = Instance.new("Frame")
 			f.Size = UDim2.new(1, 0, 0, 38)
 			f.BackgroundColor3 = T.Row
@@ -861,7 +865,6 @@ function GUI:Tab(name, icon)
 			f:SetAttribute("DSearch", string.lower(tostring(txt)))
 			corner(f, 10)
 			stroke(f, Color3.fromRGB(0, 0, 0), 1, 0.6, Enum.ApplyStrokeMode.Border)
-
 			local l = Instance.new("TextLabel")
 			l.Position = UDim2.new(0, 12, 0, 0)
 			l.Size = UDim2.new(1, -70, 1, 0)
@@ -873,7 +876,6 @@ function GUI:Tab(name, icon)
 			l.TextXAlignment = Enum.TextXAlignment.Left
 			l.TextTruncate = Enum.TextTruncate.AtEnd
 			l.Parent = f
-
 			local pill = Instance.new("Frame")
 			pill.AnchorPoint = Vector2.new(1, 0.5)
 			pill.Position = UDim2.new(1, -10, 0.5, 0)
@@ -882,7 +884,6 @@ function GUI:Tab(name, icon)
 			pill.BorderSizePixel = 0
 			pill.Parent = f
 			corner(pill, 12)
-
 			local arrow = Instance.new("TextLabel")
 			arrow.Size = UDim2.new(1, 0, 1, 0)
 			arrow.BackgroundTransparency = 1
@@ -891,14 +892,12 @@ function GUI:Tab(name, icon)
 			arrow.TextSize = 11
 			arrow.TextColor3 = Color3.fromRGB(255, 255, 255)
 			arrow.Parent = pill
-
 			local clicker = Instance.new("TextButton")
 			clicker.Size = UDim2.new(1, 0, 1, 0)
 			clicker.BackgroundTransparency = 1
 			clicker.Text = ""
 			clicker.AutoButtonColor = false
 			clicker.Parent = f
-
 			trackConn(clicker.MouseEnter:Connect(function()
 				tw(f, 0.12, { BackgroundColor3 = T.RowHover })
 			end))
@@ -914,7 +913,6 @@ function GUI:Tab(name, icon)
 				end)
 				pcall(function() if cb then cb() end end)
 			end))
-
 			return f
 		end
 		function Sec:Toggle(txt, default, cb)
@@ -1148,7 +1146,7 @@ local function setHidden(h)
 	Main.Visible = not h
 	Shadow.Visible = not h
 end
-trackConn(MinBtn.MouseButton1Click:Connect(function() setHidden(true) Notify("ddariuspr gui", "Minimized — Click D button to bring back", T.Yellow) end))
+trackConn(MinBtn.MouseButton1Click:Connect(function() setHidden(true) Notify("ddariuspr gui", "Minimized — tap D to bring back", T.Yellow) end))
 trackConn(CloseBtn.MouseButton1Click:Connect(function()
 	Notify("ddariuspr gui", "Destroyed. Re-run to open again.", T.Red)
 	task.wait(0.4)
@@ -1158,15 +1156,15 @@ end))
 
 local Float = Instance.new("TextButton")
 Float.Name = "D_Toggle"
-Float.Size = UDim2.new(0, 52, 0, 52)
-Float.Position = UDim2.new(1, -68, 0.35, 0)
+Float.Size = UDim2.new(0, 60, 0, 60)
+Float.Position = UDim2.new(1, -76, 0.35, 0)
 Float.BackgroundColor3 = T.Orange
 Float.Font = TITLE_FONT
 Float.Text = "D"
 Float.TextSize = 26
 Float.TextColor3 = Color3.fromRGB(255, 255, 255)
 Float.Parent = Gui
-corner(Float, 26)
+corner(Float, 30)
 stroke(Float, Color3.fromRGB(0, 0, 0), 3, 0, Enum.ApplyStrokeMode.Border)
 local fgrad = Instance.new("UIGradient")
 fgrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, T.Orange), ColorSequenceKeypoint.new(1, T.Pink)})
@@ -1174,10 +1172,10 @@ fgrad.Rotation = 45
 fgrad.Parent = Float
 _G.ddariuspr_float = Float
 do
-	local fdrag, fstart, fpos = false, nil, nil
+	local fdrag, fstart, fpos, fmoved = false, nil, nil, false
 	trackConn(Float.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			fdrag = true fstart = i.Position fpos = Float.Position
+			fdrag = true fmoved = false fstart = i.Position fpos = Float.Position
 		end
 	end))
 	trackConn(UserInputService.InputChanged:Connect(function(i)
@@ -1185,12 +1183,15 @@ do
 			local s = (Scale and Scale.Scale) or 1
 			if type(s) ~= "number" or s == 0 then s = 1 end
 			local d = (i.Position - fstart) / s
-			if (i.Position - fstart).Magnitude > 8 then Float.Position = UDim2.new(fpos.X.Scale, fpos.X.Offset + d.X, fpos.Y.Scale, fpos.Y.Offset + d.Y) end
+			if (i.Position - fstart).Magnitude > 8 then
+				fmoved = true
+				Float.Position = UDim2.new(fpos.X.Scale, fpos.X.Offset + d.X, fpos.Y.Scale, fpos.Y.Offset + d.Y)
+			end
 		end
 	end))
 	trackConn(UserInputService.InputEnded:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			if fdrag and fstart and (i.Position - fstart).Magnitude <= 8 then setHidden(not uiHidden) end
+			if fdrag and not fmoved then setHidden(not uiHidden) end
 			fdrag = false
 		end
 	end))
@@ -1206,63 +1207,34 @@ if getgenv then
 end
 
 -- ============================================================
--- SHARED STRICT ENEMY CHECK + MOBILE-FRIENDLY TARGET FINDER
+-- SHARED STRICT ENEMY CHECK
 -- ============================================================
-local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 
 local function isEnemyStrict(model: Model): boolean
 	if not model or not model:IsA("Model") then return false end
 	if model == LocalPlayer.Character then return false end
 	if model.Name == LocalPlayer.Name then return false end
-
 	local hum = model:FindFirstChildOfClass("Humanoid")
 	if not hum or hum.Health <= 0 then return false end
-
 	local plr = Players:FindFirstChild(model.Name)
 	if plr and plr:IsA("Player") then
 		if plr.Team ~= nil and LocalPlayer.Team ~= nil then
 			return plr.Team ~= LocalPlayer.Team
 		end
 	end
-
 	local mySide = LocalPlayer:GetAttribute("MatchSide")
 	local theirSide = model:GetAttribute("MatchSide")
 	if mySide ~= nil and theirSide ~= nil then
 		return mySide ~= theirSide
 	end
-
-	if plr and plr:IsA("Player") then
-		return false
-	end
-
+	if plr and plr:IsA("Player") then return false end
 	return false
 end
 
--- ★ MOBILE FIXED: nearest enemy by world distance (same logic Kill All uses)
-local function getNearestEnemyPart(maxDist: number?): BasePart?
-	maxDist = maxDist or 2500
-	local folder = Workspace:FindFirstChild("Characters")
-	local list = folder and folder:GetChildren() or Workspace:GetChildren()
-	local best: BasePart? = nil
-	local bestDist = maxDist
-
-	for _, v in ipairs(list) do
-		if v:IsA("Model") and v ~= LocalPlayer.Character and isEnemyStrict(v) then
-			local part = v:FindFirstChild("Head") or v:FindFirstChild("HumanoidRootPart")
-			if part and part:IsA("BasePart") then
-				local d = (part.Position - Camera.CFrame.Position).Magnitude
-				if d < bestDist then
-					best = part
-					bestDist = d
-				end
-			end
-		end
-	end
-	return best
-end
-
--- ============ TABS ============
+-- ============================================================
+-- INFO TAB
+-- ============================================================
 _G.ddariuspr_info = GUI:Tab("Info", "ℹ️")
 pcall(function()
 	local pg = Pages["Info"]
@@ -1326,15 +1298,11 @@ pcall(function()
 	task.spawn(function()
 		pcall(function()
 			local thumb, ready = Players:GetUserThumbnailAsync(7576425597, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-			if ready and typeof(thumb) == "string" and thumb ~= "" then
-				av.Image = thumb
-			end
+			if ready and typeof(thumb) == "string" and thumb ~= "" then av.Image = thumb end
 		end)
 		pcall(function()
 			local uname = Players:GetNameFromUserIdAsync(7576425597)
-			if typeof(uname) == "string" and uname ~= "" then
-				sub.Text = "@" .. uname .. " • ID 7576425597"
-			end
+			if typeof(uname) == "string" and uname ~= "" then sub.Text = "@" .. uname .. " • ID 7576425597" end
 		end)
 	end)
 end)
@@ -1346,34 +1314,20 @@ _G.ddariuspr_infoSec:Label("⭐ Sub + join the Discord so you never miss one.")
 _G.ddariuspr_infoSec:Button("🔴 SUB TO MY CHANNEL", "red", function()
 	local done = false
 	pcall(function()
-		if typeof(setclipboard) == "function" then
-			setclipboard("https://www.youtube.com/@ddariuspr")
-			done = true
-		elseif typeof(toclipboard) == "function" then
-			toclipboard("https://www.youtube.com/@ddariuspr")
-			done = true
-		elseif typeof(setrbxclipboard) == "function" then
-			setrbxclipboard("https://www.youtube.com/@ddariuspr")
-			done = true
-		end
+		if typeof(setclipboard) == "function" then setclipboard("https://www.youtube.com/@ddariuspr") done = true
+		elseif typeof(toclipboard) == "function" then toclipboard("https://www.youtube.com/@ddariuspr") done = true
+		elseif typeof(setrbxclipboard) == "function" then setrbxclipboard("https://www.youtube.com/@ddariuspr") done = true end
 	end)
-	Notify("Info", done and "Channel link copied to clipboard!" or "Copy it manually: youtube.com/@ddariuspr", T.Red)
+	Notify("Info", done and "Channel link copied!" or "youtube.com/@ddariuspr", T.Red)
 end)
 _G.ddariuspr_infoSec:Button("💬 JOIN MY DISCORD", "blue", function()
 	local done = false
 	pcall(function()
-		if typeof(setclipboard) == "function" then
-			setclipboard("https://discord.gg/D67sDZ2M")
-			done = true
-		elseif typeof(toclipboard) == "function" then
-			toclipboard("https://discord.gg/D67sDZ2M")
-			done = true
-		elseif typeof(setrbxclipboard) == "function" then
-			setrbxclipboard("https://discord.gg/D67sDZ2M")
-			done = true
-		end
+		if typeof(setclipboard) == "function" then setclipboard("https://discord.gg/D67sDZ2M") done = true
+		elseif typeof(toclipboard) == "function" then toclipboard("https://discord.gg/D67sDZ2M") done = true
+		elseif typeof(setrbxclipboard) == "function" then setrbxclipboard("https://discord.gg/D67sDZ2M") done = true end
 	end)
-	Notify("Info", done and "Discord invite copied to clipboard!" or "Copy it manually: discord.gg/D67sDZ2M", T.Blue)
+	Notify("Info", done and "Discord invite copied!" or "discord.gg/D67sDZ2M", T.Blue)
 end)
 
 local Combat = GUI:Tab("Combat", "🔪")
@@ -1382,11 +1336,6 @@ local CSec = Combat:Section("🎯 CAMLOCK")
 -- ============================================================
 -- CAMLOCK
 -- ============================================================
-local hasMouseMove = false
-pcall(function()
-	hasMouseMove = typeof(mousemoverel) == "function"
-end)
-
 local AimState = {
 	Enabled = false,
 	FOV = 130,
@@ -1409,12 +1358,9 @@ camFovGui.ResetOnSpawn = false
 camFovGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 camFovGui.DisplayOrder = 999
 pcall(function()
-	if gethui then camFovGui.Parent = gethui()
-	else camFovGui.Parent = CoreGuiSvc end
+	if gethui then camFovGui.Parent = gethui() else camFovGui.Parent = CoreGuiSvc end
 end)
-if not camFovGui.Parent then
-	camFovGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
+if not camFovGui.Parent then camFovGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 local fovCircle = Instance.new("Frame")
 fovCircle.Name = "Circle"
@@ -1435,16 +1381,10 @@ camFovStroke.Color = AimState.FOVColor
 camFovStroke.Transparency = 0
 camFovStroke.Parent = fovCircle
 
-trackConn(Gui.Destroying:Connect(function()
-	pcall(function() camFovGui:Destroy() end)
-end))
+trackConn(Gui.Destroying:Connect(function() pcall(function() camFovGui:Destroy() end) end))
 
 local snapLine: any = nil
-pcall(function()
-	if typeof(Drawing) == "table" then
-		snapLine = Drawing.new("Line")
-	end
-end)
+pcall(function() if typeof(Drawing) == "table" then snapLine = Drawing.new("Line") end end)
 if snapLine == nil then
 	snapLine = {
 		Thickness = 1.5, Transparency = 1, Visible = false,
@@ -1461,9 +1401,7 @@ pcall(function()
 	_G._ddariuspr_aim_snap = snapLine
 	if typeof(getgenv) == "function" then
 		local g = getgenv()
-		if type(g) == "table" then
-			g._ddariuspr_aim_snap = snapLine
-		end
+		if type(g) == "table" then g._ddariuspr_aim_snap = snapLine end
 	end
 end)
 
@@ -1503,9 +1441,7 @@ local function getAimWorldPos(model: Model): Vector3?
 		local hrp = model:FindFirstChild("HumanoidRootPart")
 		if hrp and hrp:IsA("BasePart") then
 			local ok, vel = pcall(function() return hrp.AssemblyLinearVelocity end)
-			if ok and typeof(vel) == "Vector3" then
-				pos += (vel :: Vector3) * AimState.Prediction
-			end
+			if ok and typeof(vel) == "Vector3" then pos += (vel :: Vector3) * AimState.Prediction end
 		end
 	end
 	return pos
@@ -1574,7 +1510,6 @@ local aimSelectConn = RunService.RenderStepped:Connect(function()
 			else
 				snapLine.Visible = false
 			end
-
 			if hasMouseMove then
 				local scr: Vector2 = screen
 				local delta: Vector2 = (scr - center) / math.max(1, AimState.Smoothing)
@@ -1585,7 +1520,7 @@ local aimSelectConn = RunService.RenderStepped:Connect(function()
 				Camera = Workspace.CurrentCamera
 				local w: Vector3 = _world
 				local goal = CFrame.lookAt(Camera.CFrame.Position, w)
-				local alpha = 1 / math.max(1, AimState.Smoothing)
+				local alpha = if IS_MOBILE then 1 else (1 / math.max(1, AimState.Smoothing))
 				Camera.CFrame = Camera.CFrame:Lerp(goal, math.clamp(alpha, 0.05, 1))
 			end
 		else
@@ -1604,10 +1539,8 @@ CSec:Toggle("Camlock", false, function(v)
 	end
 	Notify("Combat", "Camlock " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 end)
-
-CSec:Slider("Camlock FOV", 20, 600, 130, function(v)
-	AimState.FOV = v
-end)
+CSec:Slider("Camlock FOV", 20, 600, 130, function(v) AimState.FOV = v end)
+CSec:Slider("Camlock Smoothing", 1, 10, 3, function(v) AimState.Smoothing = v end)
 
 -- ============================================================
 -- TRIGGERBOT
@@ -1621,16 +1554,8 @@ local TrigState = {
 	ShowDot = true,
 }
 
-local hasClick = typeof(mouse1click) == "function"
-local vim: any = nil
-pcall(function() vim = game:GetService("VirtualInputManager") end)
-
 local trigDot: any = nil
-pcall(function()
-	if typeof(Drawing) == "table" then
-		trigDot = Drawing.new("Circle")
-	end
-end)
+pcall(function() if typeof(Drawing) == "table" then trigDot = Drawing.new("Circle") end end)
 if trigDot == nil then
 	trigDot = {
 		Radius = 4, Thickness = 2, Filled = true, Transparency = 1, Visible = false,
@@ -1649,9 +1574,7 @@ pcall(function()
 	_G._ddariuspr_trig_dot = trigDot
 	if typeof(getgenv) == "function" then
 		local g = getgenv()
-		if type(g) == "table" then
-			g._ddariuspr_trig_dot = trigDot
-		end
+		if type(g) == "table" then g._ddariuspr_trig_dot = trigDot end
 	end
 end)
 
@@ -1673,10 +1596,25 @@ local function crosshairOnHead(): boolean
 	return res.Instance.Name == TrigState.AimPartName
 end
 
-local function fireOnce(): boolean
+local KA_InputMapRef: any = nil
+pcall(function()
+	local ext = RStorage:WaitForChild("Extensions", 5)
+	if ext then KA_InputMapRef = require(ext:WaitForChild("InputMap", 5)) end
+end)
+
+local function mobileFireOnce(): boolean
 	if hasClick then
 		local ok = pcall(function() mouse1click() end)
 		if ok then return true end
+	end
+	local char = LocalPlayer.Character
+	if char then
+		for _, tool in ipairs(char:GetChildren()) do
+			if tool:IsA("Tool") then
+				local ok = pcall(function() tool:Activate() end)
+				if ok then return true end
+			end
+		end
 	end
 	if vim ~= nil then
 		local ok = pcall(function()
@@ -1684,6 +1622,10 @@ local function fireOnce(): boolean
 			task.wait()
 			vim:SendMouseButtonEvent(400, 300, 0, false, game, 1)
 		end)
+		if ok then return true end
+	end
+	if KA_InputMapRef ~= nil then
+		local ok = pcall(function() KA_InputMapRef.tap("Attack") end)
 		if ok then return true end
 	end
 	return false
@@ -1699,7 +1641,7 @@ local trigConn = RunService.RenderStepped:Connect(function()
 				local now = os.clock()
 				if now - lastFire >= TrigState.Cooldown then
 					lastFire = now
-					fireOnce()
+					mobileFireOnce()
 				end
 			end
 		end
@@ -1714,21 +1656,34 @@ trackConn(trigConn)
 local TSec = Combat:Section("🎯 TRIGGERBOT")
 TSec:Toggle("Triggerbot", false, function(v)
 	TrigState.Enabled = v
-	if not v then
-		trigDot.Visible = false
-	end
+	if not v then trigDot.Visible = false end
 	Notify("Combat", "Triggerbot " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 end)
+TSec:Slider("Triggerbot Delay (ms)", 0, 500, 250, function(v) TrigState.Cooldown = v / 1000 end)
 
 -- ============================================================
--- ★ SILENT AIM — MOBILE FIXED
+-- FORWARD DECLARATIONS (needed by Silent Aim + Wallbang)
 -- ============================================================
-local SilentState = {
-	Enabled = false,
-	FOV = 280,
-	ShowFOV = true,
-}
+local KillAllState     -- declared here, assigned in Kill All section
+local SilentState      -- declared here, assigned just below
 local silentTarget: BasePart? = nil
+local WALLBANG = false
+local WALLBANG_FOV_RADIUS = 300
+local wallbangTarget: BasePart? = nil
+
+-- ============================================================
+-- SILENT AIM  (packet-hook when available; camera-snap fallback)
+-- ============================================================
+SilentState = {
+	Enabled = false,
+	FOV = 200,
+	ShowFOV = true,
+	UseFallback = false,
+}
+
+if not hasHook then
+	SilentState.UseFallback = true
+end
 
 local silentFovGui = Instance.new("ScreenGui")
 silentFovGui.Name = "D_SilentAimFOV"
@@ -1737,12 +1692,9 @@ silentFovGui.ResetOnSpawn = false
 silentFovGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 silentFovGui.DisplayOrder = 999
 pcall(function()
-	if gethui then silentFovGui.Parent = gethui()
-	else silentFovGui.Parent = CoreGuiSvc end
+	if gethui then silentFovGui.Parent = gethui() else silentFovGui.Parent = CoreGuiSvc end
 end)
-if not silentFovGui.Parent then
-	silentFovGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
+if not silentFovGui.Parent then silentFovGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 local silentCircle = Instance.new("Frame")
 silentCircle.Name = "Circle"
@@ -1763,9 +1715,7 @@ sStroke.Color = Color3.fromRGB(255, 255, 255)
 sStroke.Transparency = 0
 sStroke.Parent = silentCircle
 
-trackConn(Gui.Destroying:Connect(function()
-	pcall(function() silentFovGui:Destroy() end)
-end))
+trackConn(Gui.Destroying:Connect(function() pcall(function() silentFovGui:Destroy() end) end))
 
 local silentSelectConn = RunService.RenderStepped:Connect(function()
 	pcall(function()
@@ -1782,18 +1732,41 @@ local silentSelectConn = RunService.RenderStepped:Connect(function()
 			return
 		end
 
-		-- ★ MOBILE FIX: use nearest enemy (same as Kill All)
-		local best = getNearestEnemyPart(2500)
-		if best then
-			local screenPos, onScreen = Camera:WorldToViewportPoint(best.Position)
-			if onScreen then
-				local d = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-				if d > SilentState.FOV then
-					best = nil
+		local best: BasePart? = nil
+		local bestDist = SilentState.FOV
+		local folder = Workspace:FindFirstChild("Characters")
+		local list = folder and folder:GetChildren() or Workspace:GetChildren()
+
+		for _, v in ipairs(list) do
+			if v:IsA("Model") and v ~= LocalPlayer.Character and isEnemyStrict(v) then
+				local part = v:FindFirstChild("Head") or v:FindFirstChild("HumanoidRootPart")
+				if part and part:IsA("BasePart") then
+					local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+					if onScreen then
+						local d = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+						if d < bestDist then
+							local origin = Camera.CFrame.Position
+							local params = RaycastParams.new()
+							params.FilterType = Enum.RaycastFilterType.Exclude
+							params.FilterDescendantsInstances = {LocalPlayer.Character, v, Camera}
+							params.IgnoreWater = true
+							local hit = Workspace:Raycast(origin, part.Position - origin, params)
+							if hit == nil then
+								best, bestDist = part, d
+							end
+						end
+					end
 				end
 			end
 		end
 		silentTarget = best
+
+		if SilentState.UseFallback and silentTarget then
+			local cam = Workspace.CurrentCamera
+			if cam then
+				cam.CFrame = CFrame.lookAt(cam.CFrame.Position, silentTarget.Position)
+			end
+		end
 	end)
 end)
 trackConn(silentSelectConn)
@@ -1805,21 +1778,19 @@ SAimSec:Toggle("Silent Aim", false, function(v)
 		silentTarget = nil
 		silentCircle.Visible = false
 	else
-		KillAllState.ensureHook()
+		if KillAllState and KillAllState.ensureHook then KillAllState.ensureHook() end
+		if SilentState.UseFallback then
+			Notify("Silent Aim", "ON (mobile fallback mode — camera-assisted)", T.Yellow)
+		else
+			Notify("Silent Aim", "ON", T.Green)
+		end
 	end
-	Notify("Combat", "Silent Aim " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 end)
-SAimSec:Slider("Silent Aim FOV", 40, 600, 280, function(v)
-	SilentState.FOV = v
-end)
+SAimSec:Slider("Silent Aim FOV", 40, 600, 200, function(v) SilentState.FOV = v end)
 
 -- ============================================================
--- ★ WALLBANG — MOBILE FIXED
+-- WALLBANG
 -- ============================================================
-local WALLBANG = false
-local WALLBANG_FOV_RADIUS = 400
-local wallbangTarget: BasePart? = nil
-
 local wallbangSelectConn = RunService.RenderStepped:Connect(function()
 	pcall(function()
 		if not WALLBANG then
@@ -1828,8 +1799,36 @@ local wallbangSelectConn = RunService.RenderStepped:Connect(function()
 		end
 
 		Camera = Workspace.CurrentCamera or Camera
-		-- ★ MOBILE FIX: pure nearest enemy
-		wallbangTarget = getNearestEnemyPart(WALLBANG_FOV_RADIUS * 4)
+		local viewport = Camera.ViewportSize
+		local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+
+		local best: BasePart? = nil
+		local bestDist = WALLBANG_FOV_RADIUS
+		local folder = Workspace:FindFirstChild("Characters")
+		local list = folder and folder:GetChildren() or Workspace:GetChildren()
+
+		for _, v in ipairs(list) do
+			if v:IsA("Model") and v ~= LocalPlayer.Character and isEnemyStrict(v) then
+				local part = v:FindFirstChild("Head") or v:FindFirstChild("HumanoidRootPart")
+				if part and part:IsA("BasePart") then
+					local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+					if onScreen then
+						local d = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+						if d < bestDist then
+							best, bestDist = part, d
+						end
+					end
+				end
+			end
+		end
+		wallbangTarget = best
+
+		if SilentState.UseFallback and wallbangTarget then
+			local cam = Workspace.CurrentCamera
+			if cam then
+				cam.CFrame = CFrame.lookAt(cam.CFrame.Position, wallbangTarget.Position)
+			end
+		end
 	end)
 end)
 trackConn(wallbangSelectConn)
@@ -1840,21 +1839,23 @@ WSEC:Toggle("Wallbang", false, function(v)
 	if not v then
 		wallbangTarget = nil
 	else
-		KillAllState.ensureHook()
+		if KillAllState and KillAllState.ensureHook then KillAllState.ensureHook() end
+		if SilentState.UseFallback then
+			Notify("Wallbang", "ON (mobile fallback mode — camera-assisted)", T.Yellow)
+		else
+			Notify("Wallbang", "ON", T.Green)
+		end
 	end
-	Notify("Combat", "Wallbang " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 end)
+WSEC:Slider("Wallbang FOV", 40, 800, 300, function(v) WALLBANG_FOV_RADIUS = v end)
 
 -- ============================================================
 -- KILL ALL
 -- ============================================================
-local RStorage = game:GetService("ReplicatedStorage")
-
-local KillAllState = {
+KillAllState = {
 	Enabled = false,
 	Target = nil :: BasePart?,
 }
-
 KillAllState.AUTO_EQUIP_GUN = true
 KillAllState.CAST_TIMEOUT = 2.5
 KillAllState.SETTLE = 0.15
@@ -1865,25 +1866,21 @@ KillAllState.WARN_GAP = 3
 KillAllState.lastWarn = 0
 KillAllState.lastMatchWarn = 0
 KillAllState.lastRoundWarn = 0
+KillAllState.hooked = false
+KillAllState.running = false
 
 local KA_InputMap: any = nil
 pcall(function()
 	local ext = RStorage:WaitForChild("Extensions", 5)
-	if ext then
-		KA_InputMap = require(ext:WaitForChild("InputMap", 5))
-	end
+	if ext then KA_InputMap = require(ext:WaitForChild("InputMap", 5)) end
 end)
 local KA_AEC: any = nil
-pcall(function()
-	KA_AEC = require(RStorage:WaitForChild("AbilityEffectClient", 5))
-end)
+pcall(function() KA_AEC = require(RStorage:WaitForChild("AbilityEffectClient", 5)) end)
 
 local function ka_bindingFor(action: string): string?
 	if KA_InputMap ~= nil then
 		local ok, binds = pcall(function() return KA_InputMap.getBindings(action) end)
-		if ok and typeof(binds) == "table" and #binds > 0 then
-			return binds[1]
-		end
+		if ok and typeof(binds) == "table" and #binds > 0 then return binds[1] end
 	end
 	return nil
 end
@@ -1923,12 +1920,8 @@ end
 local function ka_castAbility(action: string): string
 	local bindName = ka_bindingFor(action) or (if action == "CastAbility2" then "E" else "Q")
 	local item = ka_resolveInput(bindName)
-	if item ~= nil and ka_pressKey(item) then
-		return "key " .. bindName
-	end
-	if ka_tapAction(action) then
-		return "tap " .. action
-	end
+	if item ~= nil and ka_pressKey(item) then return "key " .. bindName end
+	if ka_tapAction(action) then return "tap " .. action end
 	return "FAILED"
 end
 
@@ -1936,24 +1929,16 @@ local function ka_bulletEffectId(): string?
 	local id: string? = nil
 	pcall(function()
 		local raw = LocalPlayer:GetAttribute("Ability2Id")
-		if typeof(raw) == "string" and raw ~= "" then
-			id = string.gsub(raw, "Bullet$", "")
-		end
+		if typeof(raw) == "string" and raw ~= "" then id = string.gsub(raw, "Bullet$", "") end
 	end)
-	if id == nil or id == "" then
-		return nil
-	end
+	if id == nil or id == "" then return nil end
 	return id
 end
 
 function KillAllState.isBarrage(): boolean
 	local raw: any = nil
-	pcall(function()
-		raw = LocalPlayer:GetAttribute("Ability2Id")
-	end)
-	if raw == "BarrageBullet" then
-		return true
-	end
+	pcall(function() raw = LocalPlayer:GetAttribute("Ability2Id") end)
+	if raw == "BarrageBullet" then return true end
 	local id = ka_bulletEffectId()
 	return id == "Barrage"
 end
@@ -1965,65 +1950,39 @@ function KillAllState.cooldownLeft(): number
 		start = LocalPlayer:GetAttribute("Ability2CooldownStartedAt")
 		dur = LocalPlayer:GetAttribute("Ability2CooldownDuration")
 	end)
-	if type(start) ~= "number" or type(dur) ~= "number" then
-		return 0
-	end
-	if dur ~= dur then
-		return 0
-	end
+	if type(start) ~= "number" or type(dur) ~= "number" then return 0 end
+	if dur ~= dur then return 0 end
 	if dur == math.huge then
 		local active = false
 		pcall(function()
-			if KA_AEC ~= nil then
-				active = KA_AEC.GetActiveFor("bullet", "Barrage") ~= nil
-			end
+			if KA_AEC ~= nil then active = KA_AEC.GetActiveFor("bullet", "Barrage") ~= nil end
 		end)
-		if active then
-			return 0
-		end
+		if active then return 0 end
 		return math.huge
 	end
-	if dur <= 0 then
-		return 0
-	end
+	if dur <= 0 then return 0 end
 	local remain = (start + dur) - os.clock()
-	if remain < 0 then
-		remain = 0
-	end
+	if remain < 0 then remain = 0 end
 	return remain
 end
 
 function KillAllState.fxOn(): boolean
-	if KA_AEC == nil then
-		return false
-	end
-	local ok, fx = pcall(function()
-		return KA_AEC.GetActiveFor("bullet", "Barrage")
-	end)
+	if KA_AEC == nil then return false end
+	local ok, fx = pcall(function() return KA_AEC.GetActiveFor("bullet", "Barrage") end)
 	return ok and fx ~= nil
 end
 
 function KillAllState.inMatch(): boolean
 	local team: any = nil
-	pcall(function()
-		team = LocalPlayer.Team
-	end)
+	pcall(function() team = LocalPlayer.Team end)
 	if team ~= nil and team.Name ~= nil then
-		if team.Name == "Lobby" then
-			return false
-		end
-		if team.Name == "A" or team.Name == "B" then
-			return true
-		end
+		if team.Name == "Lobby" then return false end
+		if team.Name == "A" or team.Name == "B" then return true end
 	end
 	local sideOk = false
 	pcall(function()
-		if LocalPlayer:GetAttribute("MatchSide") ~= nil then
-			sideOk = true
-		end
-		if LocalPlayer:GetAttribute("MatchId") ~= nil then
-			sideOk = true
-		end
+		if LocalPlayer:GetAttribute("MatchSide") ~= nil then sideOk = true end
+		if LocalPlayer:GetAttribute("MatchId") ~= nil then sideOk = true end
 	end)
 	return sideOk
 end
@@ -2038,28 +1997,20 @@ function KillAllState.roundLive(): boolean
 		if tt and tt:IsA("TextLabel") and tt.Visible then
 			local t = tostring(tt.Text or "")
 			t = t:gsub("%s+", "")
-			if t == "4" or t == "3" or t == "2" or t == "1" then
-				return false
-			end
+			if t == "4" or t == "3" or t == "2" or t == "1" then return false end
 		end
 		return true
 	end)
-	if ok then
-		return live
-	end
+	if ok then return live end
 	return true
 end
 
 function KillAllState.snap()
 	pcall(function()
 		local t = KillAllState.Target
-		if t == nil or t.Parent == nil then
-			return
-		end
+		if t == nil or t.Parent == nil then return end
 		local cam = workspace.CurrentCamera
-		if cam == nil then
-			return
-		end
+		if cam == nil then return end
 		if hasMouseMove then
 			local sp, on = cam:WorldToViewportPoint(t.Position)
 			if on then
@@ -2082,9 +2033,7 @@ local function ka_waitForBulletEffect(idStr: string?, timeout: number): boolean
 	while os.clock() - t0 < timeout do
 		if not _alive or not KillAllState.Enabled then return false end
 		local ok, fx = pcall(function() return KA_AEC.GetActiveFor("bullet", idStr) end)
-		if ok and fx ~= nil then
-			return true
-		end
+		if ok and fx ~= nil then return true end
 		task.wait(0.05)
 	end
 	return false
@@ -2114,10 +2063,24 @@ trackConn(RunService.RenderStepped:Connect(function()
 		return
 	end
 	Camera = Workspace.CurrentCamera or Camera
-	KillAllState.Target = getNearestEnemyPart(2500)
+	local folder = Workspace:FindFirstChild("Characters")
+	local list = folder and folder:GetChildren() or Workspace:GetChildren()
+	local best: BasePart? = nil
+	local bestDist = math.huge
+	for _, v in ipairs(list) do
+		if v:IsA("Model") and v ~= LocalPlayer.Character and isEnemyStrict(v) then
+			local part = v:FindFirstChild("Head") or v:FindFirstChild("HumanoidRootPart")
+			if part and part:IsA("BasePart") then
+				local d = (part.Position - Camera.CFrame.Position).Magnitude
+				if d < bestDist then
+					best = part
+					bestDist = d
+				end
+			end
+		end
+	end
+	KillAllState.Target = best
 end))
-
-KillAllState.running = false
 
 local function ka_runOnce(): boolean
 	if not KillAllState.inMatch() then
@@ -2139,15 +2102,10 @@ local function ka_runOnce(): boolean
 	if KillAllState.AUTO_EQUIP_GUN then
 		local eqBind = ka_bindingFor("EquipRevolver") or "Two"
 		local eqItem = ka_resolveInput(eqBind)
-		if eqItem ~= nil then
-			ka_pressKey(eqItem)
-		else
-			ka_tapAction("EquipRevolver")
-		end
+		if eqItem ~= nil then ka_pressKey(eqItem) else ka_tapAction("EquipRevolver") end
 		task.wait(0.3)
 	end
 	if not KillAllState.Enabled or not _alive then return false end
-
 	if not KillAllState.isBarrage() then
 		local now = os.clock()
 		if now - KillAllState.lastWarn >= KillAllState.WARN_GAP then
@@ -2156,34 +2114,22 @@ local function ka_runOnce(): boolean
 		end
 		return false
 	end
-
 	if KillAllState.fxOn() then
 		task.wait(KillAllState.SETTLE)
 		if not KillAllState.Enabled or not _alive then return false end
-		if KillAllState.Target == nil or KillAllState.Target.Parent == nil then
-			return true
-		end
+		if KillAllState.Target == nil or KillAllState.Target.Parent == nil then return true end
 		KillAllState.snap()
 		ka_fireOnce()
 		return true
 	end
-
 	local remain = KillAllState.cooldownLeft()
-	if remain > 0.05 then
-		return false
-	end
-
+	if remain > 0.05 then return false end
 	ka_castAbility("CastAbility2")
 	local seen = ka_waitForBulletEffect("Barrage", KillAllState.CAST_TIMEOUT)
 	if not KillAllState.Enabled or not _alive then return false end
-	if not seen then
-		return false
-	end
-
+	if not seen then return false end
 	task.wait(KillAllState.SETTLE)
-	if KillAllState.Target == nil or KillAllState.Target.Parent == nil then
-		return false
-	end
+	if KillAllState.Target == nil or KillAllState.Target.Parent == nil then return false end
 	KillAllState.snap()
 	ka_fireOnce()
 	return true
@@ -2199,15 +2145,10 @@ local function ka_startLoop()
 			if ok and fired then
 				task.wait(KillAllState.IDLE_WAIT)
 			else
-				if not KillAllState.inMatch() then
-					task.wait(1)
-				elseif not KillAllState.roundLive() then
-					task.wait(KillAllState.POLL)
-				elseif not KillAllState.isBarrage() then
-					task.wait(KillAllState.RETRY_WAIT)
-				else
-					task.wait(KillAllState.POLL)
-				end
+				if not KillAllState.inMatch() then task.wait(1)
+				elseif not KillAllState.roundLive() then task.wait(KillAllState.POLL)
+				elseif not KillAllState.isBarrage() then task.wait(KillAllState.RETRY_WAIT)
+				else task.wait(KillAllState.POLL) end
 			end
 		end
 		KillAllState.running = false
@@ -2240,99 +2181,82 @@ Combat:Section("💀 KILL ALL"):Toggle("Kill All", false, function(v)
 end)
 
 -- ============================================================
--- UNIFIED NAMECALL HOOK
+-- UNIFIED NAMECALL HOOK (fixed varargs scope)
 -- ============================================================
 function KillAllState.ensureHook()
-	if KillAllState.hooked then
-		return
-	end
+	if KillAllState.hooked then return end
 	KillAllState.hooked = true
-	pcall(function()
-		if hookmetamethod and getnamecallmethod and checkcaller then
-		local oldNamecall
-		oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-			local method = getnamecallmethod()
-			if not checkcaller() then
-				local args = {...}
-				local packet = args[1]
-				if type(packet) == "table" then
-					local name = self.Name
-					if method == "FireServer" or method == "Fire" or method == "InvokeServer" then
-						local isBullet = (name == "ShootReplicate" or name == "SpawnBullet")
-						local isKnife  = (name == "ThrowReplicate" or name == "SpawnKnife")
 
-						if isBullet or isKnife then
-							local kaActive = KillAllState.Enabled and KillAllState.Target and KillAllState.Target.Parent
-							if kaActive then
-								local t = KillAllState.Target
-								if isBullet then
-									packet.hitInstance    = t
-									packet.hitPos         = t.Position
-									packet.to             = t.Position
-									packet.isCharacterHit = true
-									packet.origin         = t.Position + Vector3.new(0, 1, 0)
-									if type(packet.segments) == "table" then
-										for _, seg in ipairs(packet.segments) do
-											if type(seg) == "table" then
-												seg.hitInstance    = t
-												seg.hitPos         = t.Position
-												seg.isCharacterHit = true
-											end
-										end
-									end
-								elseif isKnife then
-									packet.target = t.Position
-									packet.origin = t.Position + Vector3.new(0, 1, 0)
-								end
-							elseif WALLBANG and wallbangTarget and wallbangTarget.Parent then
-								local t = wallbangTarget
-								if isBullet then
-									packet.hitInstance    = t
-									packet.hitPos         = t.Position
-									packet.to             = t.Position
-									packet.isCharacterHit = true
-									packet.origin         = t.Position + Vector3.new(0, 1, 0)
-									if type(packet.segments) == "table" then
-										for _, seg in ipairs(packet.segments) do
-											if type(seg) == "table" then
-												seg.hitInstance    = t
-												seg.hitPos         = t.Position
-												seg.isCharacterHit = true
-											end
-										end
-									end
-								elseif isKnife then
-									packet.target = t.Position
-									packet.origin = t.Position + Vector3.new(0, 1, 0)
-								end
-							elseif SilentState.Enabled and silentTarget and silentTarget.Parent then
-								local t = silentTarget
-								if isBullet then
-									packet.hitInstance    = t
-									packet.hitPos         = t.Position
-									packet.to             = t.Position
-									packet.isCharacterHit = true
-									if type(packet.segments) == "table" then
-										for _, seg in ipairs(packet.segments) do
-											if type(seg) == "table" then
-												seg.hitInstance    = t
-												seg.hitPos         = t.Position
-												seg.isCharacterHit = true
-											end
-										end
-									end
-								elseif isKnife then
-									packet.target = t.Position
-								end
-							end
-						end
+	local function applyPacketMods(self, args)
+		local packet = args[1]
+		if type(packet) ~= "table" then return end
+		local name = tostring(self.Name or "")
+		local lname = string.lower(name)
+
+		local isBullet = (name == "ShootReplicate" or name == "SpawnBullet")
+			or string.find(lname, "shoot", 1, true) ~= nil
+			or string.find(lname, "bullet", 1, true) ~= nil
+		local isKnife = (name == "ThrowReplicate" or name == "SpawnKnife")
+			or string.find(lname, "knife", 1, true) ~= nil
+			or string.find(lname, "throw", 1, true) ~= nil
+		if not (isBullet or isKnife) then return end
+
+		local t: BasePart? = nil
+		if KillAllState.Enabled and KillAllState.Target and KillAllState.Target.Parent then
+			t = KillAllState.Target
+		elseif WALLBANG and wallbangTarget and wallbangTarget.Parent then
+			t = wallbangTarget
+		elseif SilentState.Enabled and silentTarget and silentTarget.Parent then
+			t = silentTarget
+		end
+		if not t then return end
+
+		if isBullet then
+			packet.hitInstance    = t
+			packet.hitPos         = t.Position
+			packet.to             = t.Position
+			packet.isCharacterHit = true
+			packet.origin         = t.Position + Vector3.new(0, 1, 0)
+			if type(packet.segments) == "table" then
+				for _, seg in ipairs(packet.segments) do
+					if type(seg) == "table" then
+						seg.hitInstance    = t
+						seg.hitPos         = t.Position
+						seg.isCharacterHit = true
 					end
 				end
 			end
-			return oldNamecall(self, ...)
+		elseif isKnife then
+			packet.target = t.Position
+			packet.origin = t.Position + Vector3.new(0, 1, 0)
+		end
+	end
+
+	local installed = false
+	pcall(function()
+		if type(hookmetamethod) == "function" and type(getnamecallmethod) == "function" then
+			local oldNamecall
+			oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+				local args = {...}   -- capture HERE, in the hook's own scope
+				pcall(function()
+					local method = getnamecallmethod()
+					if method == "FireServer" or method == "Fire" or method == "InvokeServer" then
+						local isExploitCall = false
+						if type(checkcaller) == "function" then isExploitCall = checkcaller() end
+						if not isExploitCall then
+							applyPacketMods(self, args)
+						end
+					end
+				end)
+				return oldNamecall(self, ...)
 			end)
+			installed = true
 		end
 	end)
+
+	if not installed then
+		warn("[ddariuspr gui] hookmetamethod unavailable — Silent Aim / Wallbang running in camera-assisted fallback mode.")
+	end
 end
 
 -- ============================================================
@@ -2360,16 +2284,11 @@ espGui.ResetOnSpawn = false
 espGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 espGui.DisplayOrder = 998
 pcall(function()
-	if gethui then espGui.Parent = gethui()
-	else espGui.Parent = CoreGuiSvc end
+	if gethui then espGui.Parent = gethui() else espGui.Parent = CoreGuiSvc end
 end)
-if not espGui.Parent then
-	espGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
+if not espGui.Parent then espGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
-trackConn(Gui.Destroying:Connect(function()
-	pcall(function() espGui:Destroy() end)
-end))
+trackConn(Gui.Destroying:Connect(function() pcall(function() espGui:Destroy() end) end))
 
 type EspSet = { container: any, box: any, boxStroke: any, hbBg: any, hb: any, label: any }
 local espCache: { [Model]: EspSet } = {}
@@ -2421,18 +2340,10 @@ local function newEspSet(): EspSet
 	return { container = container, box = box, boxStroke = boxStroke, hbBg = hbBg, hb = hb, label = label }
 end
 
-local function hideEspSet(s: EspSet)
-	pcall(function() s.container.Visible = false end)
-end
-
-local function freeEspSet(s: EspSet)
-	pcall(function() s.container:Destroy() end)
-end
-
+local function hideEspSet(s: EspSet) pcall(function() s.container.Visible = false end) end
+local function freeEspSet(s: EspSet) pcall(function() s.container:Destroy() end) end
 local function hideAllEsp()
-	for _, s in pairs(espCache) do
-		hideEspSet(s)
-	end
+	for _, s in pairs(espCache) do hideEspSet(s) end
 end
 
 local espConn = RunService.RenderStepped:Connect(function()
@@ -2441,7 +2352,6 @@ local espConn = RunService.RenderStepped:Connect(function()
 			if next(espCache) ~= nil then hideAllEsp() end
 			return
 		end
-
 		Camera = Workspace.CurrentCamera
 		local chars = Workspace:FindFirstChild("Characters")
 		local seen: { [Model]: boolean } = {}
@@ -2476,9 +2386,7 @@ local espConn = RunService.RenderStepped:Connect(function()
 										local org = Camera.CFrame.Position
 										local dd = hrp.Position - org
 										local rr = Workspace:Raycast(org, dd.Unit * dd.Magnitude, params)
-										if rr and rr.Instance and not rr.Instance:IsDescendantOf(m) then
-											vis = false
-										end
+										if rr and rr.Instance and not rr.Instance:IsDescendantOf(m) then vis = false end
 									end
 									local col = if vis then EspState.VisColor else EspState.HidColor
 									local s = espCache[m]
@@ -2516,9 +2424,7 @@ local espConn = RunService.RenderStepped:Connect(function()
 
 									if EspState.ShowName or EspState.ShowDistance then
 										local t = m.Name
-										if EspState.ShowDistance then
-											t ..= " [" .. math.floor(dist) .. "m]"
-										end
+										if EspState.ShowDistance then t ..= " [" .. math.floor(dist) .. "m]" end
 										s.label.Text = t
 										s.label.Size = UDim2.fromOffset(200, 16)
 										s.label.Position = UDim2.fromOffset(math.floor(cx - 100), math.floor(top.Y - 18))
@@ -2548,26 +2454,12 @@ trackConn(espConn)
 
 VSec:Toggle("ESP", false, function(v)
 	EspState.Enabled = v
-	if not v then
-		hideAllEsp()
-	end
+	if not v then hideAllEsp() end
 	Notify("Visuals", "ESP " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 end)
-
-VSec:Toggle("ESP Box", true, function(v)
-	EspState.ShowBox = v
-	Notify("Visuals", "ESP Box " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
-end)
-
-VSec:Toggle("ESP Health", true, function(v)
-	EspState.ShowHealth = v
-	Notify("Visuals", "ESP Health " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
-end)
-
-VSec:Toggle("ESP Name", true, function(v)
-	EspState.ShowName = v
-	Notify("Visuals", "ESP Name " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
-end)
+VSec:Toggle("ESP Box", true, function(v) EspState.ShowBox = v end)
+VSec:Toggle("ESP Health", true, function(v) EspState.ShowHealth = v end)
+VSec:Toggle("ESP Name", true, function(v) EspState.ShowName = v end)
 
 -- ============================================================
 -- MOVE TAB
@@ -2575,13 +2467,7 @@ end)
 local Move = GUI:Tab("Move", "🏃")
 local MoveSec = Move:Section("🏃 SLIDE")
 
-local SlideState = {
-	Enabled = false,
-	Speed = 35,
-	Time = 0.9,
-	MaxForce = 50000,
-}
-
+local SlideState = { Enabled = false, Speed = 35, Time = 0.9, MaxForce = 50000 }
 local slideLV = nil
 local slideTrack = nil
 local slideAnimId = nil
@@ -2594,9 +2480,7 @@ local SLIDE_ANIMS = {
 }
 
 local slideInputMap = nil
-pcall(function()
-	slideInputMap = require(game.ReplicatedStorage.Extensions.InputMap)
-end)
+pcall(function() slideInputMap = require(RStorage.Extensions.InputMap) end)
 
 local function slideGetChar()
 	local folder = workspace:FindFirstChild("Characters")
@@ -2622,10 +2506,7 @@ local function slideEnsureLV(hrp)
 	return slideLV
 end
 
-local function slideRemoveLV()
-	if slideLV then pcall(function() slideLV:Destroy() end) slideLV = nil end
-end
-
+local function slideRemoveLV() if slideLV then pcall(function() slideLV:Destroy() end) slideLV = nil end end
 local function slideStopAnim()
 	if slideTrack then pcall(function() slideTrack:Stop(0.15) end) end
 	slideTrack = nil
@@ -2660,9 +2541,7 @@ end
 
 local function slideDir(char, hum, hrp)
 	local md = hum.MoveDirection
-	if md.Magnitude > 0.1 then
-		return Vector3.new(md.X, 0, md.Z).Unit
-	end
+	if md.Magnitude > 0.1 then return Vector3.new(md.X, 0, md.Z).Unit end
 	local look = hrp.CFrame.LookVector
 	local flat = Vector3.new(look.X, 0, look.Z)
 	if flat.Magnitude > 0.01 then return flat.Unit end
@@ -2689,9 +2568,7 @@ local function slideCrouchHeld()
 	if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then return true end
 	local gp = false
 	pcall(function()
-		if UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonB) then
-			gp = true
-		end
+		if UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonB) then gp = true end
 	end)
 	return gp
 end
@@ -2716,10 +2593,7 @@ trackConn(RunService.Heartbeat:Connect(function()
 	if char ~= slideCharRef then
 		slideRemoveLV() slideStopAnim() slideCharRef = char slideBurstUntil = 0
 	end
-	if not SlideState.Enabled then
-		slideRemoveLV() slideStopAnim()
-		return
-	end
+	if not SlideState.Enabled then slideRemoveLV() slideStopAnim() return end
 	if slideCrouchHeld() then
 		local hum = char:FindFirstChildOfClass("Humanoid")
 		if hum and hum.Health > 0 and hum.FloorMaterial ~= Enum.Material.Air then
@@ -2728,27 +2602,14 @@ trackConn(RunService.Heartbeat:Connect(function()
 	end
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hum or not hrp or hum.Health <= 0 then
-		slideRemoveLV() slideStopAnim()
-		return
-	end
-	if os.clock() > slideBurstUntil or hum.FloorMaterial == Enum.Material.Air then
-		slideRemoveLV() slideStopAnim()
-		return
-	end
+	if not hum or not hrp or hum.Health <= 0 then slideRemoveLV() slideStopAnim() return end
+	if os.clock() > slideBurstUntil or hum.FloorMaterial == Enum.Material.Air then slideRemoveLV() slideStopAnim() return end
 	local dir = slideDir(char, hum, hrp)
-	if not dir then
-		slideRemoveLV() slideStopAnim()
-		return
-	end
+	if not dir then slideRemoveLV() slideStopAnim() return end
 	local velocity = slideEnsureLV(hrp)
-	if velocity then
-		velocity.VectorVelocity = dir * SlideState.Speed
-	end
+	if velocity then velocity.VectorVelocity = dir * SlideState.Speed end
 	local track = slideEnsureAnim(char)
-	if track and not track.IsPlaying then
-		pcall(function() track:Play(0.1) end)
-	end
+	if track and not track.IsPlaying then pcall(function() track:Play(0.1) end) end
 end))
 
 trackConn(Gui.Destroying:Connect(function()
@@ -2759,9 +2620,7 @@ end))
 MoveSec:Toggle("Remove Slide Cooldown", false, function(v)
 	SlideState.Enabled = v
 	if not v then
-		slideRemoveLV()
-		slideStopAnim()
-		slideBurstUntil = 0
+		slideRemoveLV() slideStopAnim() slideBurstUntil = 0
 	end
 	Notify("Move", "Remove Slide Cooldown " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 end)
@@ -2770,11 +2629,7 @@ end)
 -- SPEED BOOST
 -- ============================================================
 local SpeedSec = Move:Section("⚡ SPEED BOOST")
-
-local SpeedState = {
-	Enabled = false,
-	Speed = 36,
-}
+local SpeedState = { Enabled = false, Speed = 36 }
 local watchedHum = nil
 
 local function speedGetChar()
@@ -2787,9 +2642,7 @@ end
 local function speedApply(hum)
 	if not SpeedState.Enabled then return end
 	if not hum or hum.Health <= 0 then return end
-	if hum.WalkSpeed ~= SpeedState.Speed then
-		pcall(function() hum.WalkSpeed = SpeedState.Speed end)
-	end
+	if hum.WalkSpeed ~= SpeedState.Speed then pcall(function() hum.WalkSpeed = SpeedState.Speed end) end
 end
 
 local function speedRestore()
@@ -2805,47 +2658,32 @@ trackConn(RunService.Stepped:Connect(function()
 	if hum ~= watchedHum then
 		watchedHum = hum
 		if hum then
-			trackConn(hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-				speedApply(hum)
-			end))
+			trackConn(hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function() speedApply(hum) end))
 		end
 	end
 	speedApply(hum)
 end))
 
-trackConn(Gui.Destroying:Connect(function()
-	speedRestore()
-end))
+trackConn(Gui.Destroying:Connect(function() speedRestore() end))
 
 SpeedSec:Toggle("Speed Boost", false, function(v)
 	SpeedState.Enabled = v
-	if not v then
-		speedRestore()
-	end
+	if not v then speedRestore() end
 	Notify("Move", "Speed Boost " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 end)
-
-SpeedSec:Slider("Speed", 16, 60, 36, function(v)
-	SpeedState.Speed = v
-end)
+SpeedSec:Slider("Speed", 16, 60, 36, function(v) SpeedState.Speed = v end)
 
 -- ============================================================
--- EMOTES TAB (kept functional)
+-- EMOTES TAB
 -- ============================================================
 local Emotes = GUI:Tab("Emotes", "🎵")
 local EmoteSec = Emotes:Section("🎵 FREE EMOTES")
-
-local EmoteState = {
-	FreeEmotes = false,
-	EmotesGUI = false,
-	Page = 1,
-}
+local EmoteState = { FreeEmotes = false, EmotesGUI = false, Page = 1 }
 
 local emoteCatalog, emoteClient, emotePreview = nil, nil, nil
 local emoteReady = false
 pcall(function()
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local Shared = ReplicatedStorage:WaitForChild("Shared", 5)
+	local Shared = RStorage:WaitForChild("Shared", 5)
 	if Shared then
 		local cat = Shared:WaitForChild("EmoteCatalog", 5)
 		local ec = Shared:WaitForChild("EmoteClient", 5)
@@ -2860,33 +2698,740 @@ pcall(function()
 end)
 
 if not emoteReady then
-	EmoteSec:Label("⚠️ Emote system not found in this game. Feature disabled.")
-	EmoteSec:Toggle("Free Emotes", false, function(v)
-		Notify("Emotes", "Emote system not available", T.Red)
-	end)
-	EmoteSec:Toggle("Emotes GUI", false, function(v)
-		Notify("Emotes", "Emote system not available", T.Red)
-	end)
+	EmoteSec:Label("⚠️ Emote system not found. Feature disabled.")
+	EmoteSec:Toggle("Free Emotes", false, function(v) Notify("Emotes", "Emote system not available", T.Red) end)
+	EmoteSec:Toggle("Emotes GUI", false, function(v) Notify("Emotes", "Emote system not available", T.Red) end)
 else
-	EmoteSec:Label("✅ Emote system detected. Free Emotes available.")
+	local ALL = emoteCatalog.Order
+	local PAGE_SIZE = 8
+	local PAGES = {}
+	for i = 1, #ALL, PAGE_SIZE do
+		local p = {}
+		for j = i, math.min(i + PAGE_SIZE - 1, #ALL) do table.insert(p, ALL[j]) end
+		table.insert(PAGES, p)
+	end
+
+	local Orig = {
+		GetLoadout = emoteClient.GetLoadout,
+		SlotEntry = emoteClient.SlotEntry,
+		SlotOfInstance = emoteClient.SlotOfInstance,
+		RequestPlay = emoteClient.RequestPlay,
+		RequestStop = emoteClient.RequestStop,
+	}
+	local realLoad = Orig.GetLoadout()
+	local realGuid = (realLoad and realLoad[1] and realLoad[1].InstanceId) or ("real-" .. tostring(LocalPlayer.UserId))
+	local fakeLoadout = {}
+
+	local function rebuildFake(pageIdx)
+		table.clear(fakeLoadout)
+		local ids = PAGES[pageIdx]
+		for i = 1, PAGE_SIZE do
+			local id = ids[i]
+			if id then
+				local isRealIcon = (id == "Icon")
+				fakeLoadout[i] = {
+					ItemId = id,
+					InstanceId = isRealIcon and realGuid or ("spoof-" .. id),
+					Spoofed = not isRealIcon,
+				}
+			else
+				fakeLoadout[i] = nil
+			end
+		end
+	end
+
+	local curTrack, curSound, curDef = nil, nil, nil
+	local function stopEmote()
+		if curTrack then pcall(function() curTrack:Stop(0.15) end) end
+		curTrack, curDef = nil, nil
+		if curSound then
+			local s = curSound
+			curSound = nil
+			pcall(function() s:Stop() end)
+			pcall(function() s:Destroy() end)
+		end
+		pcall(function() emotePreview.StopStage() end)
+	end
+
+	local lastPlay = 0
+	local function playEmote(emoteId)
+		local now = tick()
+		if now - lastPlay < 0.6 then return false, "TooFast" end
+		lastPlay = now
+		stopEmote()
+		local char = LocalPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local animator = hum and hum:FindFirstChildOfClass("Animator")
+		if not animator then return false, "NoAnimator" end
+		if not hum or hum.Health <= 0 then return false, "Dead" end
+		local def = emoteCatalog.Get and emoteCatalog.Get(emoteId) or emoteCatalog.Defs[emoteId]
+		if not def then return false, "NoDef" end
+		local anim = Instance.new("Animation")
+		anim.AnimationId = "rbxassetid://" .. tostring(def.Anim)
+		local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+		pcall(function() anim:Destroy() end)
+		if not ok or not track then return false, "LoadFail" end
+		track.Priority = Enum.AnimationPriority.Action
+		track.Looped = (def.Loop == true)
+		pcall(function() track:Play(0.15, 1, 1) end)
+		curTrack = track
+		curDef = def
+		pcall(function()
+			track.Stopped:Connect(function()
+				if curTrack == track then
+					if def.SfxTail then curTrack, curDef = nil, nil
+					else stopEmote() end
+				end
+			end)
+		end)
+		local sfxId = def.Sfx
+		if type(sfxId) == "table" then sfxId = sfxId[math.random(1, #sfxId)] end
+		if sfxId then
+			local host = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char
+			local s = Instance.new("Sound")
+			s.Name = "EmoteSfx_" .. tostring(emoteId)
+			s.SoundId = "rbxassetid://" .. tostring(sfxId)
+			s.Volume = tonumber(def.SfxVolume) or 0.5
+			local pitch = tonumber(def.SfxPitch) or 1
+			local var = tonumber(def.SfxPitchVar) or 0
+			if var > 0 then pitch = pitch + (math.random() * 2 - 1) * var end
+			s.PlaybackSpeed = pitch
+			s.Looped = (def.Loop == true)
+			s.RollOffMode = Enum.RollOffMode.InverseTapered
+			s.RollOffMaxDistance = 150
+			s.RollOffMinDistance = 8
+			s.EmitterSize = 8
+			s.Parent = host
+			pcall(function() s:Play() end)
+			curSound = s
+			local fadeAt = tonumber(def.SfxFadeOutAt)
+			if fadeAt then
+				task.delay(fadeAt, function()
+					if curSound == s then
+						local t = tonumber(def.SfxFadeTime) or 0.6
+						pcall(function() TweenService:Create(s, TweenInfo.new(t), {Volume = 0}):Play() end)
+						task.delay(t + 0.05, function()
+							if curSound == s then
+								pcall(function() s:Stop() end)
+								pcall(function() s:Destroy() end)
+								curSound = nil
+							end
+						end)
+					end
+				end)
+			end
+		end
+		return true
+	end
+
+	local function fillGameWheel()
+		local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+		if not pg then return end
+		local wheelGui = pg:FindFirstChild("EmoteWheel")
+		if not wheelGui then return end
+		local wheel = wheelGui:FindFirstChild("Wheel")
+		if not wheel then return end
+		local ids = PAGES[EmoteState.Page]
+		for i = 1, PAGE_SIZE do
+			local id = ids[i]
+			local nameLbl = wheel:FindFirstChild("Name" .. i)
+			local plus = wheel:FindFirstChild("Plus" .. i)
+			local rig = wheel:FindFirstChild("Rig" .. i)
+			local slice = wheel:FindFirstChild("Slice" .. i)
+			if id then
+				local def = emoteCatalog.Defs[id]
+				if nameLbl and nameLbl:IsA("TextLabel") then nameLbl.Text = def and (def.Name or id) or id end
+				if plus then plus.Visible = false end
+				if rig then
+					for _, c in ipairs(rig:GetChildren()) do pcall(function() c:Destroy() end) end
+					pcall(function() emotePreview.new(rig, id, {autoplay = true, loop = true}) end)
+				end
+				if slice and slice:IsA("ImageLabel") then slice.ImageTransparency = 0.1 end
+			else
+				if nameLbl then nameLbl.Text = "" end
+				if plus then plus.Visible = true end
+				if rig then for _, c in ipairs(rig:GetChildren()) do pcall(function() c:Destroy() end) end end
+				if slice and slice:IsA("ImageLabel") then slice.ImageTransparency = 0.55 end
+			end
+		end
+		local hub = wheel:FindFirstChild("Hub")
+		if hub and hub:IsA("TextLabel") then hub.Text = "Page " .. EmoteState.Page .. "/" .. #PAGES end
+	end
+
+	local function nextPage()
+		EmoteState.Page = EmoteState.Page % #PAGES + 1
+		rebuildFake(EmoteState.Page)
+		fillGameWheel()
+	end
+
+	local hooksEnabled = false
+	local function enableHooks()
+		if hooksEnabled then return end
+		hooksEnabled = true
+		rebuildFake(EmoteState.Page)
+		emoteClient.GetLoadout = function() return fakeLoadout end
+		emoteClient.SlotEntry = function(slot) return fakeLoadout[slot] end
+		emoteClient.SlotOfInstance = function(instId)
+			for slot, e in pairs(fakeLoadout) do
+				if e.InstanceId == instId then return slot end
+			end
+			return Orig.SlotOfInstance(instId)
+		end
+		emoteClient.RequestPlay = function(slot)
+			local e = fakeLoadout[slot]
+			if e and e.Spoofed then return playEmote(e.ItemId) end
+			if e and not e.Spoofed then return Orig.RequestPlay(slot) end
+			return false, "EmptySlot"
+		end
+		emoteClient.RequestStop = function()
+			stopEmote()
+			return Orig.RequestStop()
+		end
+		task.delay(0.2, fillGameWheel)
+	end
+
+	local function disableHooks()
+		if not hooksEnabled then return end
+		hooksEnabled = false
+		pcall(function() emoteClient.GetLoadout = Orig.GetLoadout end)
+		pcall(function() emoteClient.SlotEntry = Orig.SlotEntry end)
+		pcall(function() emoteClient.SlotOfInstance = Orig.SlotOfInstance end)
+		pcall(function() emoteClient.RequestPlay = Orig.RequestPlay end)
+		pcall(function() emoteClient.RequestStop = Orig.RequestStop end)
+		stopEmote()
+	end
+
+	local panelGui = Instance.new("ScreenGui")
+	panelGui.Name = "MD_SpoofPanel"
+	panelGui.ResetOnSpawn = false
+	panelGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	panelGui.DisplayOrder = 997
+	pcall(function()
+		if gethui then panelGui.Parent = gethui() else panelGui.Parent = CoreGuiSvc end
+	end)
+	if not panelGui.Parent then panelGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+	local main = Instance.new("Frame")
+	main.Name = "Main"
+	main.Size = UDim2.new(0, 620, 0, 470)
+	main.Position = UDim2.new(0.5, -310, 0.5, -235)
+	main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	main.BorderSizePixel = 0
+	main.Visible = false
+	main.Active = true
+	main.Parent = panelGui
+	corner(main, 12)
+	stroke(main, Color3.fromRGB(255, 170, 80), 2, 0, Enum.ApplyStrokeMode.Border)
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, -180, 0, 30)
+	title.Position = UDim2.new(0, 10, 0, 6)
+	title.BackgroundTransparency = 1
+	title.Text = "Tap emote to play • Drag to move"
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.Font = BODY_FONT
+	title.TextSize = 13
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = main
+
+	local pageBtn = Instance.new("TextButton")
+	pageBtn.Size = UDim2.new(0, 120, 0, 26)
+	pageBtn.Position = UDim2.new(1, -130, 0, 6)
+	pageBtn.Text = "Next page"
+	pageBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+	pageBtn.TextColor3 = Color3.new(1, 1, 1)
+	pageBtn.Font = BODY_FONT
+	pageBtn.TextSize = 12
+	pageBtn.Parent = main
+	corner(pageBtn, 6)
+	pageBtn.MouseButton1Click:Connect(function() nextPage() end)
+
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Size = UDim2.new(0, 26, 0, 26)
+	closeBtn.Position = UDim2.new(1, -32, 0, 6)
+	closeBtn.Text = "X"
+	closeBtn.BackgroundColor3 = Color3.fromRGB(160, 25, 40)
+	closeBtn.TextColor3 = Color3.new(1, 1, 1)
+	closeBtn.Font = BODY_FONT
+	closeBtn.TextSize = 13
+	closeBtn.Parent = main
+	corner(closeBtn, 6)
+	closeBtn.MouseButton1Click:Connect(function() main.Visible = false end)
+
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = UDim2.new(1, -20, 1, -48)
+	scroll.Position = UDim2.new(0, 10, 0, 40)
+	scroll.BackgroundTransparency = 1
+	scroll.ScrollBarThickness = 5
+	scroll.BorderSizePixel = 0
+	scroll.Parent = main
+
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(0, 135, 0, 120)
+	grid.CellPadding = UDim2.new(0, 8, 0, 8)
+	grid.Parent = scroll
+
+	for _, id in ipairs(ALL) do
+		local def = emoteCatalog.Defs[id]
+		local b = Instance.new("TextButton")
+		b.Text = ""
+		b.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+		b.BorderSizePixel = 0
+		b.Parent = scroll
+		corner(b, 8)
+		local im = Instance.new("ImageLabel")
+		im.Size = UDim2.new(1, -16, 1, -40)
+		im.Position = UDim2.new(0, 8, 0, 8)
+		im.BackgroundTransparency = 1
+		im.Image = def.Icon
+		im.ScaleType = Enum.ScaleType.Fit
+		im.Parent = b
+		local lb = Instance.new("TextLabel")
+		lb.Size = UDim2.new(1, 0, 0, 22)
+		lb.Position = UDim2.new(0, 0, 1, -24)
+		lb.BackgroundTransparency = 1
+		lb.Text = def.Name .. (def.Walkable and " •walk" or "")
+		lb.TextColor3 = Color3.fromRGB(255, 255, 255)
+		lb.Font = BODY_FONT
+		lb.TextSize = 12
+		lb.Parent = b
+		b.MouseButton1Click:Connect(function() playEmote(id) end)
+	end
+
+	task.defer(function()
+		scroll.CanvasSize = UDim2.new(0, 0, 0, grid.AbsoluteContentSize.Y + 10)
+		grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+			scroll.CanvasSize = UDim2.new(0, 0, 0, grid.AbsoluteContentSize.Y + 10)
+		end)
+	end)
+
+	do
+		local drag, dstart, dpos = false, nil, nil
+		trackConn(main.InputBegan:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+				local relY = i.Position.Y - main.AbsolutePosition.Y
+				if relY <= 40 then
+					drag = true dstart = i.Position dpos = main.Position
+				end
+			end
+		end))
+		trackConn(UserInputService.InputChanged:Connect(function(i)
+			if drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+				local d = i.Position - dstart
+				main.Position = UDim2.new(dpos.X.Scale, dpos.X.Offset + d.X, dpos.Y.Scale, dpos.Y.Offset + d.Y)
+			end
+		end))
+		trackConn(UserInputService.InputEnded:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = false end
+		end))
+	end
+
+	trackConn(Gui.Destroying:Connect(function() pcall(function() panelGui:Destroy() end) end))
+
+	local emoteButton = Instance.new("TextButton")
+	emoteButton.Name = "EmoteOpen"
+	emoteButton.Size = UDim2.new(0, 60, 0, 60)
+	emoteButton.Position = UDim2.new(1, -76, 0.35, 80)
+	emoteButton.BackgroundColor3 = Color3.fromRGB(138, 43, 255)
+	emoteButton.Font = TITLE_FONT
+	emoteButton.Text = "🎵"
+	emoteButton.TextSize = 26
+	emoteButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	emoteButton.Visible = false
+	emoteButton.Parent = Gui
+	corner(emoteButton, 30)
+	stroke(emoteButton, Color3.fromRGB(0, 0, 0), 3, 0, Enum.ApplyStrokeMode.Border)
+	local eGrad = Instance.new("UIGradient")
+	eGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, T.Purple), ColorSequenceKeypoint.new(1, T.Pink)})
+	eGrad.Rotation = 45
+	eGrad.Parent = emoteButton
+
+	do
+		local drag, dstart, dpos = false, nil, nil
+		local moved = false
+		trackConn(emoteButton.InputBegan:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+				drag = true moved = false dstart = i.Position dpos = emoteButton.Position
+			end
+		end))
+		trackConn(UserInputService.InputChanged:Connect(function(i)
+			if drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+				local s = (Scale and Scale.Scale) or 1
+				if type(s) ~= "number" or s == 0 then s = 1 end
+				local d = (i.Position - dstart) / s
+				if (i.Position - dstart).Magnitude > 8 then
+					moved = true
+					emoteButton.Position = UDim2.new(dpos.X.Scale, dpos.X.Offset + d.X, dpos.Y.Scale, dpos.Y.Offset + d.Y)
+				end
+			end
+		end))
+		trackConn(UserInputService.InputEnded:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+				if drag and not moved then main.Visible = not main.Visible end
+				drag = false
+			end
+		end))
+	end
+
 	EmoteSec:Toggle("Free Emotes", false, function(v)
 		EmoteState.FreeEmotes = v
+		if v then enableHooks() else disableHooks() main.Visible = false end
 		Notify("Emotes", "Free Emotes " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 	end)
 	EmoteSec:Toggle("Emotes GUI", false, function(v)
 		EmoteState.EmotesGUI = v
+		emoteButton.Visible = v
+		if not v then main.Visible = false end
 		Notify("Emotes", "Emotes GUI " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
 	end)
+
+	trackConn(RunService.Heartbeat:Connect(function()
+		if not _alive then return end
+		local t = curTrack
+		local d = curDef
+		if not t or not d then return end
+		local char = LocalPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if not hum then stopEmote() return end
+		if hum.Health <= 0 then stopEmote() return end
+		local st = hum:GetState()
+		if st == Enum.HumanoidStateType.Jumping
+			or st == Enum.HumanoidStateType.Freefall
+			or st == Enum.HumanoidStateType.FallingDown
+			or st == Enum.HumanoidStateType.Swimming
+			or st == Enum.HumanoidStateType.Dead then
+			stopEmote() return
+		end
+		if hum.MoveDirection.Magnitude > 0.25 and d.Walkable ~= true then stopEmote() return end
+	end))
+
+	trackConn(LocalPlayer.CharacterAdded:Connect(function()
+		if EmoteState.FreeEmotes then
+			stopEmote()
+			task.delay(1, fillGameWheel)
+		end
+	end))
+
+	pcall(function()
+		local bindables = RStorage:FindFirstChild("Bindables")
+		if bindables then
+			local tog = bindables:FindFirstChild("EmoteWheelToggle")
+			if tog then
+				trackConn(tog.Event:Connect(function()
+					if EmoteState.FreeEmotes then task.delay(0.15, fillGameWheel) end
+				end))
+			end
+		end
+	end)
+
+	trackConn(Gui.Destroying:Connect(function()
+		disableHooks()
+		pcall(function() stopEmote() end)
+	end))
 end
+
+-- ============================================================
+-- INVENTORY INJECTOR
+-- ============================================================
+local Injector = (function()
+	local lp = LocalPlayer
+	local wantedKnife = lp:GetAttribute("KnifeSkin") or "Default"
+	local wantedRevolver = lp:GetAttribute("RevolverSkin") or "Default"
+	local lastPickKnife, lastPickRevolver = 0, 0
+
+	local function skinNames(folderName)
+		local out = {}
+		local folder = game.ReplicatedStorage:FindFirstChild(folderName)
+		if folder then
+			for _, v in ipairs(folder:GetChildren()) do
+				if v:IsA("Model") then table.insert(out, v.Name) end
+			end
+		end
+		table.sort(out)
+		for i, n in ipairs(out) do
+			if n == "Default" then table.remove(out, i) table.insert(out, 1, "Default") break end
+		end
+		return out
+	end
+
+	local knives = skinNames("Knives")
+	local revolvers = skinNames("Revolvers")
+
+	do
+		local pg = lp:FindFirstChildOfClass("PlayerGui")
+		local old = pg and pg:FindFirstChild("SkinGui")
+		if old then pcall(function() old:Destroy() end) end
+	end
+
+	local invOK, HUD = pcall(function() return lp:WaitForChild("PlayerGui"):WaitForChild("HUD", 10) end)
+	local InvWindow, Navigator, Items, MasterTemplate
+	if invOK and HUD then
+		InvWindow = HUD:FindFirstChild("InventoryWindow")
+		if InvWindow then
+			Navigator = InvWindow:FindFirstChild("Navigator")
+			local ItemContent = InvWindow:FindFirstChild("ItemContent")
+			Items = ItemContent and ItemContent:FindFirstChild("Items")
+			local Filters = InvWindow:FindFirstChild("Filters")
+			MasterTemplate = Filters and Filters:FindFirstChild("ItemTemplate")
+		end
+	end
+
+	local lastInvTab = "Knives"
+	local PREFIX = "WRANGLER_"
+	local WIELD_GREEN = Color3.fromRGB(45, 200, 90)
+
+	local function clearInjected()
+		if not Items then return end
+		for _, ch in ipairs(Items:GetChildren()) do
+			if ch.Name:sub(1, #PREFIX) == PREFIX then pcall(function() ch:Destroy() end) end
+		end
+	end
+
+	local function refreshInvHighlights()
+		if not Items then return end
+		for _, ch in ipairs(Items:GetChildren()) do
+			if ch.Name:sub(1, #PREFIX) == PREFIX and ch:IsA("ImageButton") then
+				local skinName = ch:GetAttribute("WranglerSkin")
+				local kind = ch:GetAttribute("WranglerKind")
+				if skinName and kind then
+					local worn = (kind == "Knives" and wantedKnife == skinName)
+						or (kind == "Revolvers" and wantedRevolver == skinName)
+					local stroke = ch:FindFirstChild("UIStrokeOuter")
+					if stroke and stroke:IsA("UIStroke") then
+						stroke.Color = worn and WIELD_GREEN or Color3.fromRGB(0, 0, 0)
+						stroke.Thickness = worn and 0.06 or 0.03
+					end
+					local glow = ch:FindFirstChild("Glow")
+					if glow then glow.Visible = worn end
+				end
+			end
+		end
+	end
+
+	local function fitMiniViewport(vp, cam, kind, skinName)
+		local folder = game.ReplicatedStorage:FindFirstChild(kind == "Knives" and "Knives" or "Revolvers")
+		local tmpl = folder and folder:FindFirstChild(skinName)
+		if not tmpl then return end
+		local clone = tmpl:Clone()
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d.Name == "BoundingBox" and d:IsA("BasePart") then
+				d.Transparency = 1
+				d.CanCollide = false
+				pcall(function() d.CanQuery = false end)
+			elseif d:IsA("BasePart") then
+				d.CanCollide = false
+				d.Anchored = true
+			end
+		end
+		clone.Parent = vp
+		local ok, _, size = pcall(function() return clone:GetBoundingBox() end)
+		if not ok or not size then return end
+		pcall(function() clone:PivotTo(CFrame.new(0, 0.1, 0)) end)
+		local biggest = math.max(size.X, size.Y, size.Z, 0.5)
+		local dist = biggest * 1.15 + 0.25
+		cam.FieldOfView = 50
+		cam.CFrame = CFrame.new(Vector3.new(dist * 0.45, dist * 0.32, dist), Vector3.new(0, 0.1, 0))
+	end
+
+	local function makeTile(kind, skinName, order)
+		if not Items or not MasterTemplate then return end
+		local tile = MasterTemplate:Clone()
+		tile.Name = PREFIX .. kind .. "_" .. skinName
+		tile:SetAttribute("WranglerSkin", skinName)
+		tile:SetAttribute("WranglerKind", kind)
+		tile.Visible = true
+		tile.Active = true
+		tile.Selectable = true
+		tile.LayoutOrder = order
+		local worn = (kind == "Knives" and wantedKnife == skinName)
+			or (kind == "Revolvers" and wantedRevolver == skinName)
+		local stroke = tile:FindFirstChild("UIStrokeOuter")
+		if stroke and stroke:IsA("UIStroke") then
+			stroke.Color = worn and WIELD_GREEN or Color3.fromRGB(0, 0, 0)
+			stroke.Thickness = worn and 0.06 or 0.03
+		end
+		local glow = tile:FindFirstChild("Glow")
+		if glow then
+			glow.Visible = worn
+			pcall(function() glow.ImageColor3 = WIELD_GREEN end)
+		end
+		local insp = tile:FindFirstChild("InspectButton")
+		if insp then pcall(function() insp:Destroy() end) end
+		local icon = tile:FindFirstChild("Icon")
+		if icon and icon:IsA("ImageLabel") then icon.Visible = false end
+		local spikes = tile:FindFirstChild("Spikes")
+		if spikes then spikes.ZIndex = 4 end
+		if glow then glow.ZIndex = 4 end
+		local vp = Instance.new("ViewportFrame")
+		vp.Name = "WranglerView"
+		vp.AnchorPoint = Vector2.new(0.5, 0.5)
+		vp.Position = UDim2.new(0.5, 0, 0.5, -4)
+		vp.Size = UDim2.new(1, -6, 1, -22)
+		vp.BackgroundTransparency = 1
+		vp.BorderSizePixel = 0
+		vp.ClipsDescendants = true
+		vp.ZIndex = 2
+		vp.Parent = tile
+		local cam = Instance.new("Camera")
+		cam.Parent = vp
+		vp.CurrentCamera = cam
+		pcall(fitMiniViewport, vp, cam, kind, skinName)
+		local lbl = Instance.new("TextLabel")
+		lbl.Name = "WranglerName"
+		lbl.Size = UDim2.new(1, 0, 0, 16)
+		lbl.Position = UDim2.new(0, 0, 1, -16)
+		lbl.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		lbl.BackgroundTransparency = 0.4
+		lbl.BorderSizePixel = 0
+		lbl.TextColor3 = Color3.new(1, 1, 1)
+		lbl.TextSize = 10
+		lbl.Font = Enum.Font.GothamBold
+		lbl.TextTruncate = Enum.TextTruncate.AtEnd
+		lbl.Text = skinName
+		lbl.ZIndex = 5
+		lbl.Parent = tile
+		trackConn(tile.Activated:Connect(function()
+			if kind == "Knives" then
+				wantedKnife = skinName
+				lastPickKnife = os.clock()
+				pcall(function() lp:SetAttribute("KnifeSkin", skinName) end)
+			else
+				wantedRevolver = skinName
+				lastPickRevolver = os.clock()
+				pcall(function() lp:SetAttribute("RevolverSkin", skinName) end)
+			end
+			refreshInvHighlights()
+		end))
+		tile.Parent = Items
+	end
+
+	local injectRunning = false
+	local function injectInventory()
+		if injectRunning then return end
+		if not InvWindow or not Items or not MasterTemplate then return end
+		if not InvWindow.Visible then return end
+		injectRunning = true
+		pcall(clearInjected)
+		local order = 20000
+		local function batch(names, kind)
+			for i, n in ipairs(names) do
+				order += 1
+				pcall(makeTile, kind, n, order)
+				if i % 18 == 0 then task.wait() end
+			end
+		end
+		if lastInvTab == "Knives" then batch(knives, "Knives")
+		elseif lastInvTab == "Revolvers" then batch(revolvers, "Revolvers") end
+		injectRunning = false
+	end
+
+	local function scheduleInject(tab)
+		lastInvTab = tab
+		task.delay(0.45, function()
+			if _alive then pcall(injectInventory) end
+		end)
+	end
+
+	if Navigator and Items then
+		local kBtn = Navigator:FindFirstChild("Knives")
+		if kBtn and kBtn:IsA("ImageButton") then
+			trackConn(kBtn.Activated:Connect(function() scheduleInject("Knives") end))
+		end
+		local rBtn = Navigator:FindFirstChild("Revolvers")
+		if rBtn and rBtn:IsA("ImageButton") then
+			trackConn(rBtn.Activated:Connect(function() scheduleInject("Revolvers") end))
+		end
+		for _, tabName in ipairs({ "All", "Cases", "Finishers", "Emotes" }) do
+			local b = Navigator:FindFirstChild(tabName)
+			if b and b:IsA("ImageButton") then
+				trackConn(b.Activated:Connect(function()
+					lastInvTab = tabName
+					pcall(clearInjected)
+				end))
+			end
+		end
+		trackConn(InvWindow:GetPropertyChangedSignal("Visible"):Connect(function()
+			if InvWindow.Visible then
+				if lastInvTab == "Knives" or lastInvTab == "Revolvers" then
+					scheduleInject(lastInvTab)
+				end
+			else
+				pcall(clearInjected)
+			end
+		end))
+	end
+
+	trackConn(Gui.Destroying:Connect(function() pcall(clearInjected) end))
+
+	pcall(clearInjected)
+
+	local lastPoll = 0
+	trackConn(RunService.Heartbeat:Connect(function()
+		if not _alive then return end
+		pcall(function()
+			local now = os.clock()
+			local curK = lp:GetAttribute("KnifeSkin")
+			if curK ~= wantedKnife then
+				if now - lastPickKnife < 10 then lp:SetAttribute("KnifeSkin", wantedKnife)
+				elseif curK ~= nil then wantedKnife = curK end
+			end
+			local curR = lp:GetAttribute("RevolverSkin")
+			if curR ~= wantedRevolver then
+				if now - lastPickRevolver < 10 then lp:SetAttribute("RevolverSkin", wantedRevolver)
+				elseif curR ~= nil then wantedRevolver = curR end
+			end
+		end)
+		local now = os.clock()
+		if now - lastPoll > 0.8 then
+			lastPoll = now
+			pcall(function()
+				if InvWindow and InvWindow.Visible and Items then
+					if lastInvTab == "Knives" or lastInvTab == "Revolvers" then
+						local found = false
+						for _, ch in ipairs(Items:GetChildren()) do
+							if ch.Name:sub(1, #PREFIX) == PREFIX then found = true break end
+						end
+						if not found then injectInventory() else refreshInvHighlights() end
+					end
+				end
+			end)
+		end
+	end))
+
+	local function openTo(tab)
+		if not InvWindow then
+			Notify("Skins", "Inventory not found", T.Red)
+			return false
+		end
+		pcall(function() InvWindow.Visible = true end)
+		if Navigator then
+			local btn = Navigator:FindFirstChild(tab)
+			if btn and btn:IsA("ImageButton") then pcall(function() btn:Activate() end) end
+		end
+		scheduleInject(tab)
+		return true
+	end
+
+	return {
+		goKnives = function() return openTo("Knives") end,
+		goGuns = function() return openTo("Revolvers") end,
+		clearAll = function() pcall(clearInjected) end,
+	}
+end)()
 
 -- ============================================================
 -- SKINS TAB
 -- ============================================================
 local Skins = GUI:Tab("Skins", "🔫")
 local SkinsSec = Skins:Section("🔫 SKINS")
-SkinsSec:Label("Open inventory in-game then use the buttons below.")
 SkinsSec:Button("Get All Knives / Guns", "green", function()
-	Notify("Skins", "Open your inventory (Knives/Revolvers tab) to see injected skins.", T.Green)
+	Injector.goKnives()
+	Notify("Skins", "Getting all knives...", T.Green)
+	task.delay(1.2, function()
+		if not _alive then return end
+		Injector.goGuns()
+		Notify("Skins", "All knives + guns loaded", T.Green)
+	end)
 end)
 
 -- ============================================================
@@ -2958,7 +3503,7 @@ function GUI:showWelcome(done)
 			by.Size = UDim2.new(1, 0, 0, 26)
 			by.BackgroundTransparency = 1
 			by.Font = BODY_FONT
-			by.Text = "🔪 ddariuspr gui 🔫 • Mobile Fixed"
+			by.Text = "🔪 ddariuspr gui 🔫"
 			by.TextSize = 14
 			by.TextColor3 = T.Dim
 			by.Parent = card
@@ -2982,9 +3527,7 @@ function GUI:showWelcome(done)
 			end
 			g:Destroy()
 		end)
-		if done then
-			pcall(done)
-		end
+		if done then pcall(done) end
 	end)
 end
 
@@ -2999,6 +3542,6 @@ GUI:showWelcome(function()
 		task.wait(0.1)
 		tw(Main, 0.25, { BackgroundTransparency = 0 })
 	end)
-	Notify("🔪 ddariuspr gui", "Mobile Fixed • Silent + Wallbang ready!", T.Green)
+	Notify("🔪 ddariuspr gui", "BEST Murder Duels edition loaded! (mobile ready)", T.Green)
 end)
-print("ddariuspr gui v1 Mobile Fixed loaded")
+print("ddariuspr gui v1 loaded — mobile ready")
