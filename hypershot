@@ -1,4 +1,4 @@
--- ddariuspr gui | MURDER DUELS BEST EDITION v1 (mobile-ready, silent-aim fixed)
+-- ddariuspr gui | MURDER DUELS BEST EDITION v1 (mobile-ready, silent-aim fixed, device-locked)
 print("[ddariuspr] script start")
 
 local Players = game:GetService("Players")
@@ -913,8 +913,9 @@ function GUI:Tab(name, icon)
 			end))
 			return f
 		end
-		function Sec:Toggle(txt, default, cb)
+		function Sec:Toggle(txt, default, cb, disabled, disabledMsg)
 			default = (default == true)
+			disabled = (disabled == true)
 			local f = Instance.new("Frame")
 			f.Size = UDim2.new(1, 0, 0, 38)
 			f.BackgroundColor3 = T.Row
@@ -930,7 +931,7 @@ function GUI:Tab(name, icon)
 			l.Font = BODY_FONT
 			l.Text = tostring(txt)
 			l.TextSize = 12
-			l.TextColor3 = Color3.fromRGB(255, 255, 255)
+			l.TextColor3 = disabled and T.Faint or Color3.fromRGB(255, 255, 255)
 			l.TextXAlignment = Enum.TextXAlignment.Left
 			l.TextTruncate = Enum.TextTruncate.AtEnd
 			l.Parent = f
@@ -938,7 +939,7 @@ function GUI:Tab(name, icon)
 			sw.AnchorPoint = Vector2.new(1, 0.5)
 			sw.Position = UDim2.new(1, -10, 0.5, 0)
 			sw.Size = UDim2.new(0, 46, 0, 24)
-			sw.BackgroundColor3 = default and T.Green or Color3.fromRGB(70, 45, 32)
+			sw.BackgroundColor3 = disabled and Color3.fromRGB(45, 32, 25) or (default and T.Green or Color3.fromRGB(70, 45, 32))
 			sw.Text = ""
 			sw.AutoButtonColor = false
 			sw.Parent = f
@@ -946,12 +947,16 @@ function GUI:Tab(name, icon)
 			local knob = Instance.new("Frame")
 			knob.Position = default and UDim2.new(1, -22, 0, 2) or UDim2.new(0, 2, 0, 2)
 			knob.Size = UDim2.new(0, 20, 0, 20)
-			knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			knob.BackgroundColor3 = disabled and Color3.fromRGB(140, 140, 140) or Color3.fromRGB(255, 255, 255)
 			knob.BorderSizePixel = 0
 			knob.Parent = sw
 			corner(knob, 10)
 			local state = default
 			local function set(v)
+				if disabled then
+					Notify("🔒 Locked", disabledMsg or (tostring(txt) .. " is not available on this device."), T.Yellow)
+					return
+				end
 				state = v
 				tw(sw, 0.15, { BackgroundColor3 = v and T.Green or Color3.fromRGB(70, 45, 32) })
 				tw(knob, 0.15, { Position = v and UDim2.new(1, -22, 0, 2) or UDim2.new(0, 2, 0, 2) })
@@ -1325,7 +1330,7 @@ _G.ddariuspr_infoSec:Button("💬 JOIN MY DISCORD", "blue", function()
 end)
 
 local Combat = GUI:Tab("Combat", "🔪")
-local CSec = Combat:Section("🎯 CAMLOCK")
+local CSec = Combat:Section("🎯 CAMLOCK (PC ONLY)")
 
 -- CAMLOCK
 local AimState = {
@@ -1523,14 +1528,14 @@ local aimSelectConn = RunService.RenderStepped:Connect(function()
 end)
 trackConn(aimSelectConn)
 
-CSec:Toggle("Camlock", false, function(v)
+CSec:Toggle("Camlock (PC)", false, function(v)
 	AimState.Enabled = v
 	if not v then
 		fovCircle.Visible = false
 		snapLine.Visible = false
 	end
 	Notify("Combat", "Camlock " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
-end)
+end, IS_MOBILE, "Camlock is PC-only. Not available on phone/tablet.")
 CSec:Slider("Camlock FOV", 20, 600, 130, function(v) AimState.FOV = v end)
 CSec:Slider("Camlock Smoothing", 1, 10, 3, function(v) AimState.Smoothing = v end)
 
@@ -1643,15 +1648,15 @@ local trigConn = RunService.RenderStepped:Connect(function()
 end)
 trackConn(trigConn)
 
-local TSec = Combat:Section("🎯 TRIGGERBOT")
-TSec:Toggle("Triggerbot", false, function(v)
+local TSec = Combat:Section("🎯 TRIGGERBOT (PC ONLY)")
+TSec:Toggle("Triggerbot (PC)", false, function(v)
 	TrigState.Enabled = v
 	if not v then trigDot.Visible = false end
 	Notify("Combat", "Triggerbot " .. (v and "ON" or "OFF"), v and T.Green or T.Red)
-end)
+end, IS_MOBILE, "Triggerbot is PC-only. Not available on phone/tablet.")
 TSec:Slider("Triggerbot Delay (ms)", 0, 500, 250, function(v) TrigState.Cooldown = v / 1000 end)
 
--- FORWARD DECLARATIONS (needed by Silent Aim + Wallbang)
+-- FORWARD DECLARATIONS
 local KillAllState
 local SilentState
 local silentTarget: BasePart? = nil
@@ -1659,7 +1664,7 @@ local WALLBANG = false
 local WALLBANG_FOV_RADIUS = 300
 local wallbangTarget: BasePart? = nil
 
--- SILENT AIM (fixed target picker)
+-- SILENT AIM
 SilentState = {
 	Enabled = false,
 	FOV = 200,
@@ -2165,7 +2170,7 @@ Combat:Section("💀 KILL ALL"):Toggle("Kill All", false, function(v)
 	end
 end)
 
--- UNIFIED NAMECALL HOOK (fixed varargs scope)
+-- UNIFIED NAMECALL HOOK
 function KillAllState.ensureHook()
 	if KillAllState.hooked then return end
 	KillAllState.hooked = true
