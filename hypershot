@@ -1,0 +1,348 @@
+-- Hypershot Camlock v3 (players + enemy bots) - wallcheck + teamcheck, closest to crosshair
+-- Q / RightShift toggle. Green circle = ON.
+
+pcall(function()
+	if getgenv().HypershotCamlock_Cleanup then
+		getgenv().HypershotCamlock_Cleanup()
+	end
+end)
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Teams = game:GetService("Teams")
+
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+	warn("[Camlock] No LocalPlayer")
+	return
+end
+
+local Camera = Workspace.CurrentCamera
+
+local CONFIG = {
+	ToggleKeys = { Enum.KeyCode.Q, Enum.KeyCode.RightShift },
+	FOV = 160,
+	Smoothing = 2.5,
+	Prediction = 0.1, -- disabled per user
+	TargetPlayers = true,
+	TargetBots = true,
+	TeamCheck = true, -- FFA (0 teams) = everyone enemy. Team mode = skip same team.
+	AssumeBotsAreEnemies = true,
+	AimPart = "Head",
+	ShowFOV = true,
+	HoldToLock = false,
+	Wallcheck = true, -- NEW: skip targets behind walls
+}
+
+local enabled = false
+local connections = {}
+local drawings = {}
+getgenv().CamlockDebug = { enabled = false, players = 0, bots = 0, best = "none", mobsFound = false }
+
+local function cleanup()
+	for _, c in ipairs(connections) do
+		pcall(function() c:Disconnect() end)
+	end
+	table.clear(connections)
+	for _, d in ipairs(drawings) do
+		pcall(function() d:Remove() end)
+	end
+	table.clear(drawings)
+	getgenv().HypershotCamlock_Cleanup = nil
+	print("[Camlock] cleaned up")
+end
+getgenv().HypershotCamlock_Cleanup = cleanup
+do
+	local _STATE = rawget(getgenv(), "STATE")
+	if _STATE and _STATE.onCleanup then
+		_STATE.onCleanup(cleanup)
+	end
+end
+
+local fovCircle = Drawing.new("Circle")
+fovCircle.Radius = CONFIG.FOV
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Thickness = 2
+fovCircle.Filled = false
+fovCircle.Transparency = 0.9
+fovCircle.Visible = CONFIG.ShowFOV
+table.insert(drawings, fovCircle)
+
+local statusText = Drawing.new("Text")
+statusText.Size = 18
+statusText.Color = Color3.fromRGB(255, 60, 60)
+statusText.Center = true
+statusText.Outline = true
+statusText.Visible = true
+table.insert(drawings, statusText)
+
+local function hasTeams()
+	return #Teams:GetTeams() >= 2
+end
+
+local function isPlayerEnemy(playerObj)
+	if not CONFIG.TeamCheck then return true end
+	if not hasTeams() then return true end -- FFA
+	local myTeam = LocalPlayer.Team
+	local theirTeam = playerObj.Team
+	if myTeam == nil or theirTeam == nil then return true end
+	return myTeam ~= theirTeam
+end
+
+local function isBotEnemy(model)
+	if not CONFIG.TeamCheck then return true end
+	if not hasTeams() then return true end -- FFA
+	local attr = model:GetAttribute("Team") or model:GetAttribute("TeamName")
+	if typeof(attr) == "string" and LocalPlayer.Team then
+		return attr ~= LocalPlayer.Team.Name
+	end
+	local teamVal = model:FindFirstChild("Team", true)
+	if teamVal and teamVal.Value and LocalPlayer.Team then
+		if typeof(teamVal.Value) == "Instance" and teamVal.Value:IsA("Team") then
+			return teamVal.Value ~= LocalPlayer.Team
+		elseif typeof(teamVal.Value) == "string" then
+			return teamVal.Value ~= LocalPlayer.Team.Name
+		end
+	end
+	return CONFIG.AssumeBotsAreEnemies
+end
+
+local function getParts(model)
+	local head = model:FindFirstChild("Head")
+	local hrp = model:FindFirstChild("HumanoidRootPart")
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	return head, hrp, hum
+end
+
+local function validTarget(model)
+	if model == LocalPlayer.Character then return false end
+	if not model:IsA("Model") then return false end
+	local head, hrp, hum = getParts(model)
+	if not head and not hrp then return false end
+	if hum and hum.Health ~= nil and hum.Health <= 0 then return false end
+	return true
+end
+
+local function findMobFolder()
+	for _, name in ipairs({ "Mobs", "Bots", "Enemies", "NPCs", "BotFolder" }) do
+		local f = Workspace:FindFirstChild(name)
+		if f then return f, name end
+	end
+	return nil, "none"
+end
+
+local function collectTargets()
+	local out = {}
+	local nPlayers, nBots = 0, 0
+	if CONFIG.TargetPlayers then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				local char = plr.Character
+				if char and validTarget(char) and isPlayerEnemy(plr) then
+					table.insert(out, char)
+					nPlayers += 1
+				end
+			end
+		end
+	end
+	if CONFIG.TargetBots then
+		local mobs, mobsName = findMobFolder()
+		getgenv().CamlockDebug.mobsFound = (mobs ~= nil)
+		getgenv().CamlockDebug.mobsName = mobsName
+		if mobs then
+			for _, m in ipairs(mobs:GetChildren()) do
+				if m:IsA("Model") and validTarget(m) and isBotEnemy(m) then
+					table.insert(out, m)
+					nBots += 1
+				end
+			end
+		else
+			local checked = 0
+			for _, d in ipairs(Workspace:GetChildren()) do
+				if checked > 60 then break end
+				if d:IsA("Model") and string.find(d.Name, "__Bot", 1, true) then
+					checked += 1
+					if validTarget(d) and isBotEnemy(d) then
+						table.insert(out, d)
+						nBots += 1
+					end
+				end
+			end
+		end
+	end
+	getgenv().CamlockDebug.players = nPlayers
+	getgenv().CamlockDebug.bots = nBots
+	return out
+end
+
+local function getAimPosition(model)
+	local head, hrp, _ = getParts(model)
+	local part = nil
+	if CONFIG.AimPart == "Head" then
+		part = head or hrp
+	else
+		part = hrp or head
+	end
+	if not part then return nil end
+	local pos = part.Position
+	if CONFIG.Prediction > 0 and hrp and hrp.Velocity then
+		pos = pos + (hrp.Velocity * CONFIG.Prediction)
+	end
+	return pos
+end
+
+-- NEW: wallcheck - true if Camera can see aimPos without a wall in between.
+-- Excludes own char + target so they never count as walls. Other characters
+-- don't count as walls either (only world parts block).
+local function isVisible(aimPos, targetModel)
+	if not CONFIG.Wallcheck then return true end
+	Camera = Workspace.CurrentCamera
+	if not Camera then return false end
+	local origin = Camera.CFrame.Position
+	local dir = aimPos - origin
+	local dist = dir.Magnitude
+	if dist < 1 then return true end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore = { targetModel }
+	local myChar = LocalPlayer.Character
+	if myChar then
+		table.insert(ignore, myChar)
+	end
+	params.FilterDescendantsInstances = ignore
+	params.IgnoreWater = true
+	local ok, result = pcall(function()
+		return Workspace:Raycast(origin, dir, params)
+	end)
+	if not ok then return true end -- fail open if raycast errors
+	if not result then return true end -- nothing hit = clear
+	local hitModel = result.Instance:FindFirstAncestorOfClass("Model")
+	if hitModel then
+		if hitModel:FindFirstChildOfClass("Humanoid") then
+			return true -- another player/bot body, not a wall
+		end
+	end
+	return false -- wall
+end
+
+local function toggle()
+	enabled = not enabled
+	getgenv().CamlockDebug.enabled = enabled
+	print("[Camlock] " .. (enabled and "ON" or "OFF"))
+end
+
+local c1 = UserInputService.InputBegan:Connect(function(input, gpe)
+	if input.KeyCode then
+		for _, k in ipairs(CONFIG.ToggleKeys) do
+			if input.KeyCode == k then
+				toggle()
+				return
+			end
+		end
+	end
+	if gpe then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		getgenv().CamlockHolding = true
+	end
+end)
+table.insert(connections, c1)
+
+local c2 = UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		getgenv().CamlockHolding = false
+	end
+end)
+table.insert(connections, c2)
+
+local frameCount = 0
+local c3 = RunService.RenderStepped:Connect(function()
+	Camera = Workspace.CurrentCamera
+	if not Camera then return end
+	local vs = Camera.ViewportSize
+	local center = vs / 2
+	fovCircle.Position = Vector2.new(center.X, center.Y)
+	fovCircle.Radius = CONFIG.FOV
+	fovCircle.Visible = CONFIG.ShowFOV
+	fovCircle.Color = enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 255, 255)
+
+	frameCount += 1
+
+	-- closest to crosshair first, wallcheck only the nearest few
+	local candidates = {}
+	for _, model in ipairs(collectTargets()) do
+		local aimPos = getAimPosition(model)
+		if aimPos then
+			local sp, onScreen = Camera:WorldToViewportPoint(aimPos)
+			if onScreen then
+				local dx = sp.X - center.X
+				local dy = sp.Y - center.Y
+				local dist = math.sqrt(dx * dx + dy * dy)
+				if dist <= CONFIG.FOV then
+					table.insert(candidates, { model = model, aimPos = aimPos, dx = dx, dy = dy, dist = dist })
+				end
+			end
+		end
+	end
+	table.sort(candidates, function(a, b) return a.dist < b.dist end)
+
+	local best = nil
+	local blocked = 0
+	for _, c in ipairs(candidates) do
+		if isVisible(c.aimPos, c.model) then
+			best = c
+			break
+		else
+			blocked += 1
+		end
+		if blocked > 8 then break end -- don't raycast whole lobby every frame
+	end
+	getgenv().CamlockDebug.best = best and best.model.Name or "none"
+	getgenv().CamlockDebug.bestDist = best and math.floor(best.dist) or math.floor(CONFIG.FOV)
+	getgenv().CamlockDebug.blocked = blocked
+
+	statusText.Position = Vector2.new(center.X, center.Y + CONFIG.FOV + 12)
+	statusText.Text = string.format("LOCK %s | P:%d B:%d | %s [%d]%s",
+		enabled and "ON" or "OFF",
+		getgenv().CamlockDebug.players,
+		getgenv().CamlockDebug.bots,
+		getgenv().CamlockDebug.best,
+		getgenv().CamlockDebug.bestDist,
+		(CONFIG.Wallcheck and " W" or ""))
+	statusText.Color = enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 60, 60)
+
+	if frameCount % 300 == 0 then
+		print(string.format("[Camlock] enabled=%s players=%d bots=%d best=%s dist=%d blocked=%d mobs=%s teams=%d wall=%s",
+			tostring(enabled),
+			getgenv().CamlockDebug.players,
+			getgenv().CamlockDebug.bots,
+			getgenv().CamlockDebug.best,
+			getgenv().CamlockDebug.bestDist,
+			blocked,
+			tostring(getgenv().CamlockDebug.mobsName),
+			#Teams:GetTeams(),
+			tostring(CONFIG.Wallcheck)))
+	end
+
+	local shouldLock = enabled
+	if CONFIG.HoldToLock then
+		shouldLock = getgenv().CamlockHolding == true
+	end
+	if not shouldLock then return end
+	if not best then return end
+
+	local myChar = LocalPlayer.Character
+	local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+	if myHum and myHum.Health <= 0 then return end
+
+	if typeof(isrbxactive) == "function" and not isrbxactive() then
+		return
+	end
+
+	local s = math.max(1, CONFIG.Smoothing)
+	mousemoverel(best.dx / s, best.dy / s)
+end)
+table.insert(connections, c3)
+
+print("[Camlock v3] loaded. Q/RightShift. FOV=" .. CONFIG.FOV .. " wall=" .. tostring(CONFIG.Wallcheck))
