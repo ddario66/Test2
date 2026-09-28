@@ -1,4 +1,4 @@
--- ddariuspr gui | MURDER DUELS BEST EDITION v1 (mobile-ready, silent-aim fixed, kill-all warning, bindable cast, no camera jerk, ability wallbang)
+-- ddariuspr gui | MURDER DUELS BEST EDITION v1 (mobile-ready, silent-aim fixed, kill-all warning, bindable cast, no camera jerk, ability wallbang, genuine-shoot-only)
 print("[ddariuspr] script start")
 
 local Players = game:GetService("Players")
@@ -1693,22 +1693,14 @@ do
 		return res.Instance.Name == TrigState.AimPartName
 	end
 
-	local KA_InputMapRef: any = nil
-	pcall(function()
-		local ext = RStorage:WaitForChild("Extensions", 5)
-		if ext then KA_InputMapRef = require(ext:WaitForChild("InputMap", 5)) end
-	end)
-
+	-- ONLY genuine shoot() — no mouse, no VIM (mobile-safe, no glitches)
 	local function mobileFireOnce(): boolean
 		local genuine = getGenuineShoot()
 		if genuine then
 			local ok = pcall(genuine)
 			if ok then return true end
 		end
-		if hasClick then
-			local ok = pcall(function() mouse1click() end)
-			if ok then return true end
-		end
+		-- Last-resort: activate the equipped tool (mobile-safe, no mouse)
 		local char = LocalPlayer.Character
 		if char then
 			for _, tool in ipairs(char:GetChildren()) do
@@ -1717,18 +1709,6 @@ do
 					if ok then return true end
 				end
 			end
-		end
-		if vim ~= nil then
-			local ok = pcall(function()
-				vim:SendMouseButtonEvent(400, 300, 0, true, game, 1)
-				task.wait()
-				vim:SendMouseButtonEvent(400, 300, 0, false, game, 1)
-			end)
-			if ok then return true end
-		end
-		if KA_InputMapRef ~= nil then
-			local ok = pcall(function() KA_InputMapRef.tap("Attack") end)
-			if ok then return true end
 		end
 		return false
 	end
@@ -2090,26 +2070,23 @@ do
 		return false
 	end
 
+	-- ONLY genuine shoot() — no mouse, no VIM (mobile-safe, no glitches)
 	local function ka_fireOnce(): string
 		local genuine = getGenuineShoot()
 		if genuine then
 			local ok = pcall(genuine)
 			if ok then return "genuine shoot()" end
 		end
-		if hasClick then
-			local clickFn = mouse1click
-			local ok = pcall(function() clickFn() end)
-			if ok then return "mouse1click" end
+		-- Last-resort: activate the equipped tool (mobile-safe, no mouse)
+		local char = LocalPlayer.Character
+		if char then
+			for _, tool in ipairs(char:GetChildren()) do
+				if tool:IsA("Tool") then
+					local ok = pcall(function() tool:Activate() end)
+					if ok then return "tool activate" end
+				end
+			end
 		end
-		if vim ~= nil then
-			local ok = pcall(function()
-				vim:SendMouseButtonEvent(400, 300, 0, true, game, 1)
-				task.wait()
-				vim:SendMouseButtonEvent(400, 300, 0, false, game, 1)
-			end)
-			if ok then return "VIM mouse" end
-		end
-		if ka_tapAction("Attack") then return "tap Attack" end
 		return "FAILED"
 	end
 
