@@ -1,95 +1,192 @@
--- Murder Duels auto shoot (genuine path, no mouse, mobile ok)
--- Calls the game's own RevolverClient shoot() (same fn normal clicks use),
--- which raycasts from camera + fires ShootReplicate + SpawnBullet.
--- No mouse1click / VIM / hooks / spy. Runs automatically on execute.
+-- Mace Mayhem Kill aura
 
-local _STATE_INJECTED = nil
-pcall(function()
-    local g = getgenv and getgenv() or _G
-    _STATE_INJECTED = g["STATE"]
-end)
-if _STATE_INJECTED == nil then
-    pcall(function() _STATE_INJECTED = _G["STATE"] end)
-end
-local STATE_T
-if typeof(_STATE_INJECTED) == "table" then
-    STATE_T = _STATE_INJECTED
-else
-    STATE_T = {
-        _clean = {},
-    }
-    function STATE_T.onCleanup(fn) table.insert(STATE_T._clean, fn) end
-    function STATE_T.connect(sig, fn)
-        local ok, c = pcall(function() return sig:Connect(fn) end)
-        if ok and c then
-            table.insert(STATE_T._clean, c)
-            return c
-        end
-        return nil
-    end
-    function STATE_T.alive() return _G.MDAS_ALIVE ~= false end
-    _G.MDAS_ALIVE = true
-end
-local S = STATE_T
+getgenv().MaceAura = getgenv().MaceAura or {}
+local Aura = getgenv().MaceAura
+Aura.Range = 14
+Aura.AttackDelay = 0.30
+Aura.StickBehind = true -- always on, no toggle
+Aura.BehindDist = 4
+Aura.UpOffset = 1
+Aura.StickRange = 70
+Aura.TargetPlayers = true
+Aura.TargetDummies = false
+Aura.AutoEquip = true
+Aura.SwingAnim = true
+if Aura.Enabled == nil then Aura.Enabled = true end
+
+getgenv().MaceAuraRunId = (getgenv().MaceAuraRunId or 0) + 1
+local runId = getgenv().MaceAuraRunId
 
 local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local lp = Players.LocalPlayer
+local locked = nil
 
-local FIRE_GAP = 0.28
-local IDLE_WAIT = 0.15
-
-_G.MDAS_ENABLED = true
-
-local function getShootFn()
-    if typeof(filtergc) ~= "function" then return nil end
-    local ok, f = pcall(function()
-        return filtergc("function", { Name = "shoot" }, true)
+-- tiny GUI
+pcall(function()
+    local old = lp.PlayerGui:FindFirstChild("MaceAuraGui")
+    if old then old:Destroy() end
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "MaceAuraGui"
+    gui.ResetOnSpawn = false
+    gui.Parent = lp.PlayerGui
+    local btn = Instance.new("TextButton")
+    btn.Name = "Toggle"
+    btn.Size = UDim2.new(0, 150, 0, 44)
+    btn.Position = UDim2.new(1, -170, 0, 120)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 160, 60)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextSize = 16
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = "Kill Aura: ON"
+    btn.Parent = gui
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+    local function refresh()
+        if Aura.Enabled then
+            btn.Text = "Kill Aura: ON"
+            btn.BackgroundColor3 = Color3.fromRGB(20, 160, 60)
+        else
+            btn.Text = "Kill Aura: OFF"
+            btn.BackgroundColor3 = Color3.fromRGB(160, 30, 30)
+        end
+    end
+    btn.MouseButton1Click:Connect(function()
+        Aura.Enabled = not Aura.Enabled
+        if not Aura.Enabled then locked = nil end
+        refresh()
+        warn("[MaceAura] " .. (Aura.Enabled and "ON" or "OFF"))
     end)
-    if ok and typeof(f) == "function" then return f end
-    return nil
+    getgenv().MaceAuraRefresh = refresh
+    refresh()
+    -- drag
+    local dragging, dragStart, startPos = false, nil, nil
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = btn.Position
+        end
+    end)
+    btn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end)
+
+local function getChar()
+    local wp = Workspace:FindFirstChild("Players")
+    if wp then
+        local m = wp:FindFirstChild(lp.Name)
+        if m then return m end
+    end
+    return lp.Character
 end
 
-local function inMatch()
-    local ok, v = pcall(function() return LP:GetAttribute("InMatch") end)
-    if ok and v == true then return true end
-    local ok2, team = pcall(function() return LP.Team and LP.Team.Name end)
-    if ok2 and team and team ~= "Lobby" then return true end
-    return false
+local function getMaceAndSignal(char)
+    if not char then return nil, nil end
+    local mace = char:FindFirstChild("Mace")
+    if not mace and Aura.AutoEquip then
+        local bm = lp.Backpack:FindFirstChild("Mace")
+        if bm then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then pcall(function() hum:EquipTool(bm) end) end
+            task.wait(0.2)
+            mace = char:FindFirstChild("Mace")
+        end
+    end
+    if not mace then return nil, nil end
+    return mace, mace:FindFirstChild("Signal")
 end
 
-local function ensureRevolver()
-    local char = LP.Character
-    if not char then return end
-    if char:FindFirstChild("Revolver") then return end
-    local bp = LP:FindFirstChild("Backpack")
-    local tool = bp and bp:FindFirstChild("Revolver")
-    if not tool then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then pcall(function() hum:EquipTool(tool) end) end
+local function validTarget(model)
+    if not model or not model:IsA("Model") then return nil end
+    if model.Name == lp.Name then return nil end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return nil end
+    local thrp = model:FindFirstChild("HumanoidRootPart")
+    if not thrp then return nil end
+    local isPlayer = Players:GetPlayerFromCharacter(model) ~= nil or Players:FindFirstChild(model.Name) ~= nil
+    if isPlayer then
+        if not Aura.TargetPlayers then return nil end
+    else
+        if not Aura.TargetDummies then return nil end
+    end
+    return hum, thrp
 end
 
-local function tryShootOnce()
-    if not inMatch() then return false end
-    local char = LP.Character
-    if not char then return false end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
-    ensureRevolver()
-    local f = getShootFn()
-    if not f then return false end
-    local ok = pcall(f)
-    return ok
+local function closestIn(range, hrp)
+    local wplayers = Workspace:FindFirstChild("Players")
+    local best, bestHum, bestHrp, bestD
+    if wplayers then
+        for _, m in pairs(wplayers:GetChildren()) do
+            local hum, thrp = validTarget(m)
+            if hum then
+                local d = (thrp.Position - hrp.Position).Magnitude
+                if d <= range and (not bestD or d < bestD) then
+                    best, bestHum, bestHrp, bestD = m, hum, thrp, d
+                end
+            end
+        end
+    end
+    return best, bestHum, bestHrp, bestD
 end
+
+warn("[MaceAura v5] running. Aura " .. (Aura.Enabled and "ON" or "OFF") .. ",  always ON")
 
 task.spawn(function()
-    while S.alive() do
-        if _G.MDAS_ENABLED then
-            tryShootOnce()
-            task.wait(FIRE_GAP)
+    while runId == getgenv().MaceAuraRunId do
+        if Aura.Enabled then
+            local ok, err = pcall(function()
+                local char = getChar()
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                local hum0 = char and char:FindFirstChildOfClass("Humanoid")
+                if not hrp or not hum0 or hum0.Health <= 0 then locked = nil task.wait(0.3) return end
+                local mace, signal = getMaceAndSignal(char)
+                if not mace or not signal then task.wait(0.3) return end
+                local model, hum, thrp = nil, nil, nil
+                if locked and locked.Parent then
+                    local h, t = validTarget(locked)
+                    if h then model, hum, thrp = locked, h, t end
+                end
+                if not model then
+                    model, hum, thrp = closestIn(Aura.StickRange, hrp)
+                    locked = model
+                    if model then warn("[MaceAura] locked " .. model.Name) end
+                end
+                if not model then task.wait(0.15) return end
+                pcall(function()
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                    hrp.CFrame = thrp.CFrame * CFrame.new(0, Aura.UpOffset, Aura.BehindDist)
+                end)
+                task.wait(0.06)
+                local h2, t2 = validTarget(model)
+                if not h2 then locked = nil return end
+                hum, thrp = h2, t2
+                pcall(function()
+                    local p = hrp.Position
+                    hrp.CFrame = CFrame.lookAt(p, Vector3.new(thrp.Position.X, p.Y, thrp.Position.Z))
+                end)
+                if Aura.SwingAnim then pcall(function() mace:Activate() end) end
+                pcall(function() signal:FireServer(hum, thrp) end)
+                if hum.Health <= 0 then
+                    warn("[MaceAura] killed " .. model.Name)
+                    locked = nil
+                end
+                task.wait(Aura.AttackDelay)
+            end)
+            if not ok then warn("[MaceAura] err: " .. tostring(err)) task.wait(0.5) end
         else
-            task.wait(IDLE_WAIT)
+            task.wait(0.2)
         end
     end
 end)
-
-print("[MDAS] auto-shoot loaded. genuine shoot(), no clicks.")
